@@ -41,13 +41,13 @@ fn basic_operations() {
     println!("");
 
     println!("x:                      {}", bits(x));
-    println!("x >> 2:                 {}", bits(x << 2));
+    println!("x >> 2:                 {}", bits(x >> 2));
     println!("x & (x >> 2):           {}", bits(x & (x >> 2)));
     println!("");
 
     println!("x:                      {}", bits(x));
     println!("x << 2:                 {}", bits(x << 2));
-    println!("x | (x << 2):           {}", bits(x & (x << 2)));
+    println!("x | (x << 2):           {}", bits(x | (x << 2)));
     println!("");
 
     println!("x:                      {}", bits(x));
