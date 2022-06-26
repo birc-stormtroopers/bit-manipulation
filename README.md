@@ -44,7 +44,7 @@ The left shift is the simplest, because there are only one version of it. It wil
 
 With the way we interpret bit-patterns as binary numbers, a left shift corresponds to multiplying by a factor $2^k$ but modulo the size of your words. If the word is
 
-$$x= \sum_{i=0}^{15}b_i\cdot 2^i$$
+$$x= b_{15}\cdot 2^{15} + b_{14}\cdot 2^{14} + \cdots + b_{1}\cdot 2^1 + b_0 \cdot 2^0 = \sum_{i=0}^{15}b_i\cdot 2^i$$
 
 then shifting, ignoring overflow (the bits that are dropped on the left) we get
 
