@@ -48,7 +48,7 @@ $$x= \sum_{i=0}^{15}b_i\cdot 2^i$$
 
 then shifting, ignoring overflow (the bits that are dropped on the left) we get
 
-$$x \ll 3 = b_{15}\cdot 2^{18} + b_{14} + \cdots + b_{1}\cdot 2^4 + b_0 \cdot 2^3 + 0\cdot 2^2 + 0\cdot 2^1 + 0\cdot 2^0 =  2^3\cdot\sum_{i=0}^{15}b_i\cdot 2^i$$
+$$x \ll 3  = b_{15}\cdot 2^{18} + b_{14}\cdot 2^{17} + \cdots + b_{1}\cdot 2^4 + b_0 \cdot 2^3 + 0\cdot 2^2 + 0\cdot 2^1 + 0\cdot 2^0 = \sum_{i=0}^{15}b_i\cdot 2^{i+3} = 2^3\cdot\sum_{i=0}^{15}b_i\cdot 2^i = 2^3 x$$
 
 and chopping off the contributions that go beyond the available word-size, bits $2^{18}, 2^{17}, 2^{16}$, corresponds to taking the remainder with respect to 
 $2^{16}$.
