@@ -71,64 +71,12 @@ There's a couple of issues if you use shifting in your code. One is that you do 
 
 Another issue is the offset `k` we shift with. Since zeros (or maybe ones with arithmetic shift) are shifted in, you might think that you can shift by an arbitrary amount. Think again. The hardware instructions for shifting generally require a small number that can be encoded in machine code, and they don't necessarily accept shifts larger than the word size. (In C, it is of course undefined what happens if you shift by more than the word size; Rust is better, here it is a compile time error to even attempt). So keep `k` smaller than the word size if you want to live a long and happy programmer life. There are times where this is annoying, and you at least would want to shift a 32-bit word by 32 bits and just let the result be all zeros, for example, but then you have to program your way around that.
 
-### Printing words (for educational purposes)
+### Using the operators
 
 Before we go to the next section, let's see how we can perform these operations in a  programming language. I've chosen Rust because it is a reasonable low-level langauge, and the operations we have on bits here we probably have everywhere, but at the same time it is more strict in its definition compared to a language such as C, were some operations are left undefined by the language definition. What we can do in one language, though, we can usually do in all of them, except that the syntax for the operations can be different. (The bit-wise not in Rust is `!`, for example, but it is `^` in Go and `~` in most other languages I know (that do not use `~` as a unary minus)).
 
 A word of warning if you are using Python, though: there you don't have fixed sized words, and that changes many of the operations. You cannot shift bits off the left end of a word, for example, and some operations are less straightforward. If you want to manipulate bits in Python, you need to read the documentation there.
 
-
-I wrote a function for printing bits for my examples. I wrote one that can handle different word sizes (although I am not really going to use that here), so there is a bit of trait and generics hacking, but it should be simple enough to see what I am doing.
-
-```rust
-use num_traits::PrimInt;
-use std::string::ToString;
-
-trait BitWidth {
-    fn width() -> usize;
-}
-
-#[cfg_attr(rustfmt, rustfmt_skip)]
-mod bidwiths {
-    use super::BitWidth;
-    impl BitWidth for u8 { fn width() -> usize { return 8; } }
-    impl BitWidth for u16 { fn width() -> usize { return 16; } }
-    impl BitWidth for u32 { fn width() -> usize { return 32; } }
-    impl BitWidth for u64 { fn width() -> usize { return 64; } }
-
-    impl BitWidth for i8 { fn width() -> usize { return 8; } }
-    impl BitWidth for i16 { fn width() -> usize { return 16; } }
-    impl BitWidth for i32 { fn width() -> usize { return 32; } }
-    impl BitWidth for i64 { fn width() -> usize { return 64; } }
-}
-
-fn bits<W: PrimInt + ToString + BitWidth>(x: W) -> String {
-    let mut bits = Vec::new();
-    for i in 0..W::width() {
-        bits.push(((x >> i) & W::one()).to_string());
-        if i % 8 == 7 {
-            bits.push(" ".to_string());
-        }
-    }
-    bits.pop(); // we added a space too much at the end
-    bits.reverse(); // we write words in the opposite order
-    return (bits).join("");
-}
-```
-
-The main bit is the `bits()` function. There, I run through the bits from zero up to (but not including) the width of the word. To get a bit, I shift the word `i` to the right, which will place the bit I want as the right-most bit, which means that I can get that bit, and only that bit, if I mask with a word that only has that bit set. I get that from the trait with `W::one()`, but it is just the integer 1. With four bits, `abcd`, it would look something like that
-
-```
-Shift               Masked with 0001
-abcd >> 0 = abcd    000d
-abcd >> 1 = 0abc    000c
-abcd >> 2 = 00ab    000b
-abcd >> 3 = 000a    000a
-```
-
-I wrote this as if we are shifting 0 in from the left, i.e. as a logical shift, but it doesn't matter if it is zero or one, because I mask the top bits out anyway.
-
-I get the bits in the reverse order compared to how I want to print them. I get the least-significant bit first and the most-significant bit last, so I see the bits `[d c b a]`. I want to print them as `[a b c d]`, so I reverse them. I add spaces between blocks of eight bits just to make the words easier to read.
 
 The bit operators in Rust are:
  * NOT: `!`
@@ -137,73 +85,82 @@ The bit operators in Rust are:
  * XOR: `^`
  * SHIFT: `<<` and `>>`. The right shift is logical for unsigned integers and arithmetic for signed.
 
-You can see the operations in action in this code snippet:
+You can see the operations in action in these code snippets:
 
 ```rust
     let x: u16 = 0xf4e2; // [f: 1111, 4: 0010, e: 1110, 2: 0010]
     println!("Unsigned:");
-    println!("x:                      {}", bits(x));
-    println!("x shifted left by two:  {}", bits(x << 2));
-    println!("x shifted right by two: {}", bits(x >> 2));
+    println!("x:                      {:016b}", x);
+    println!("!x:                     {:016b}", !x);
     println!("");
-
-    println!("x:                      {}", bits(x));
-    println!("x >> 2:                 {}", bits(x >> 2));
-    println!("x & (x >> 2):           {}", bits(x & (x >> 2)));
-    println!("");
-
-    println!("x:                      {}", bits(x));
-    println!("x << 2:                 {}", bits(x << 2));
-    println!("x | (x << 2):           {}", bits(x | (x << 2)));
-    println!("");
-
-    println!("x:                      {}", bits(x));
-    println!("x << 2:                 {}", bits(x << 2));
-    println!("x ^ (x << 2):           {}", bits(x ^ (x << 2)));
-    println!("");
-
-    println!("x:                      {}", bits(x));
-    println!("!x:                     {}", bits(!x));
-    println!("");
-
-    #[allow(overflowing_literals)] // so we can cast the bit-pattern 0xf4e2 to i16
-    let x: i16 = 0xf4e2 as i16; // [f: 1111, 4: 0010, e: 1110, 2: 0010]
-    println!("Signed:");
-    println!("x:                      {}", bits(x));
-    println!("x shifted left by two:  {}", bits(x << 2));
-    println!("x shifted right by two: {}", bits(x >> 2)); // arithmetic shift
 ```
-
-that should produce this output:
 
 ```
 Unsigned:
-x:                      11110100 11100010
-x shifted left by two:  11010011 10001000
-x shifted right by two: 00111101 00111000
-
-x:                      11110100 11100010
-x >> 2:                 00111101 00111000
-x & (x >> 2):           00110100 00100000
-
-x:                      11110100 11100010
-x << 2:                 11010011 10001000
-x | (x << 2):           11110111 11101010
-
-x:                      11110100 11100010
-x << 2:                 11010011 10001000
-x ^ (x << 2):           00100111 01101010
-
-x:                      11110100 11100010
-!x:                     00001011 00011101
-
-Signed:
-x:                      11110100 11100010
-x shifted left by two:  11010011 10001000
-x shifted right by two: 11111101 00111000
+x:                      1111010011100010
+!x:                     0000101100011101
 ```
 
-As you can see, the last right-shift drags ones in from the left. This is because it is an arithmetic shift and there was a one in the most-significant bit before the shift. When we shifted the same bit-pattern earlier, but in an unsigned integer, we shifted zero bits in; that was logical shift.
+
+```rust
+    println!("x:                      {:016b}", x);
+    println!("x << 2:                 {:016b}", x << 2);
+    println!("x | (x << 2):           {:016b}", x | (x << 2));
+    println!("");
+```
+
+```
+x:                      1111010011100010
+x << 2:                 1101001110001000
+x | (x << 2):           1111011111101010
+```
+
+```rust
+    println!("x:                      {:016b}", x);
+    println!("x << 2:                 {:016b}", x << 2);
+    println!("x ^ (x << 2):           {:016b}", x ^ (x << 2));
+    println!("");
+```
+
+```
+x:                      1111010011100010
+x << 2:                 1101001110001000
+x ^ (x << 2):           0010011101101010
+```
+
+```rust
+    println!("x:                      {:016b}", x);
+    println!("x >> 2:                 {:016b}", x >> 2);
+    println!("x & (x >> 2):           {:016b}", x & (x >> 2));
+    println!("");
+```
+
+```
+x:                      1111010011100010
+x >> 2:                 0011110100111000
+x & (x >> 2):           0011010000100000
+```
+
+Notice that the right-shift pulls zeros in from the left. That will change if we use a signed integer instead:
+
+
+```rust
+    #[allow(overflowing_literals)] // so we can cast the bit-pattern 0xf4e2 to i16
+    let x: i16 = 0xf4e2 as i16; // [f: 1111, 4: 0010, e: 1110, 2: 0010]
+    println!("Signed:");
+    println!("x:                      {:016b}", x);
+    println!("x << 2:                 {:016b}", x << 2);
+    println!("x >> 2:                 {:016b}", x >> 2); // arithmetic shift
+```
+
+```
+Signed:
+x:                      1111010011100010
+x shifted left by two:  1101001110001000
+x shifted right by two: 1111110100111000
+```
+
+As you can see, this right-shift drags ones in from the left. This is because it is an arithmetic shift and there was a one in the most-significant bit before the shift. When we shifted the same bit-pattern earlier, but in an unsigned integer, we shifted zero bits in; that was logical shift.
 
 
 ## Two's complement arithmetic
