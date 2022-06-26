@@ -67,32 +67,18 @@ However, if you interpret the bit pattern as a signed integer, you might have ne
 
 ![Arithmetic shift](figs/bit-operations/arithmetic-shift-right.png)
 
-There's a couple of issues if you use shifting in your code. One is that you do not always control whether you use logical or arithmetic shift. All languages I know of, that have unsigned integer types, will use logical shift on those. But if you have signed integers, you need to check with your language. Some languages have separate operators for logical and arithmetic shift, `>>>` for logical and `>>` for arithemtic shift in Rust or Java, for example. Or they will use arithmetic shift for signed types and logical for unsigned. Or, as in with the every complicated C programming language, leave it undefined--you might get one, you might get the other, and we are not going to tell you.
+There's a couple of issues if you use shifting in your code. One is that you do not always control whether you use logical or arithmetic shift. All languages I know of, that have unsigned integer types, will use logical shift on those. But if you have signed integers, you need to check with your language. Some languages have separate operators for logical and arithmetic shift, `>>>` for logical and `>>` for arithemtic shift in Java, for example. Or they will use arithmetic shift for signed types and logical for unsigned. Or, as in with the every complicated C programming language, leave it undefined--you might get one, you might get the other, and we are not going to tell you.
 
 Another issue is the offset `k` we shift with. Since zeros (or maybe ones with arithmetic shift) are shifted in, you might think that you can shift by an arbitrary amount. Think again. The hardware instructions for shifting generally require a small number that can be encoded in machine code, and they don't necessarily accept shifts larger than the word size. (In C, it is of course undefined what happens if you shift by more than the word size; Rust is better, here it is a compile time error to even attempt). So keep `k` smaller than the word size if you want to live a long and happy programmer life. There are times where this is annoying, and you at least would want to shift a 32-bit word by 32 bits and just let the result be all zeros, for example, but then you have to program your way around that.
 
 ### Printing words (for educational purposes)
 
-Before we go to the next section, let's see how we can perform these operations in a few different programming languages. First, though, I want some code that can display the bits in a word.
+Before we go to the next section, let's see how we can perform these operations in a  programming language. I've chosen Rust because it is a reasonable low-level langauge, and the operations we have on bits here we probably have everywhere, but at the same time it is more strict in its definition compared to a language such as C, were some operations are left undefined by the language definition. What we can do in one language, though, we can usually do in all of them, except that the syntax for the operations can be different. (The bit-wise not in Rust is `!`, for example, but it is `~` in most languages I know (that do not use `~` as a unary minus)).
 
-**Python** can already do this with string formatting. To format an integer as binary, use `"{:b}`:
+A word of warning if you are using Python, though: there you don't have fixed sized words, and that changes many of the operations. You cannot shift bits off the left end of a word, for example, and some operations are less straightforward. If you want to manipulate bits in Python, you need to read the documentation there.
 
-```python
->>> x = 0x42
->>> print(f"{x:b}")
-1000010
-```
 
-and if you want it at a specific word with, put zero and the word with before the `b`:
-
-```python
->>> print(f"{x:016b}")
-0000000001000010
-```
-
-Python doesn't operate on fixed-word integers, at least not unless you take pains to make it, so operations work a little differently. It also affects how we print them. But printing them is easy, so I'll just use formatting strings. They will be signed, because Python integers are signed by default.
-
-In **Rust**, I wrote my own function for this. I wrote one that can handle different word sizes (although I am not really going to use that here), so there is a bit of trait and generics hacking, but it should be simple enough to see what I am doing.
+I wrote a function for printing bits for my examples. I wrote one that can handle different word sizes (although I am not really going to use that here), so there is a bit of trait and generics hacking, but it should be simple enough to see what I am doing.
 
 ```rust
 use num_traits::PrimInt;
@@ -144,42 +130,14 @@ I wrote this as if we are shifting 0 in from the left, i.e. as a logical shift, 
 
 I get the bits in the reverse order compared to how I want to print them. I get the least-significant bit first and the most-significant bit last, so I see the bits `[d c b a]`. I want to print them as `[a b c d]`, so I reverse them. I add spaces between blocks of eight bits just to make the words easier to read.
 
-In **C**, I wrote this function:
-
-```c
-char global_buf[18];
-char *bits(uint16_t x, char *buf)
-{
-    buf = buf ? buf : global_buf;
-    for (int i = 0, j = 0; i < 16; i++, j++)
-    {
-        // Shift 1 ws-1 up and mask the bit out from there.
-        // We don't need the bit at the bottom when we just
-        // use it is a truth value.
-        buf[j] = (x & (1 << (15 - i))) ? '1' : '0';
-        if (i == 7) // put a space in the middle for ease of reading
-            buf[++j] = ' ';
-    }
-    return buf;
-}
-```
-
-Returning a string in C can be problematic, because someone has to be responsible for deallocating allocated memory. I solve this problem by requiring the user to provide a buffer, but because I don't want to bother with that buffer all the time, there is a global variable that works as a default. I have to be careful how I use this, but since it is only for displaying results, I don't worry too much about it. Using the buffer means I can use a call to `bits()` in `printf()` calls; if I have more than one string I need a buffer (because all arguments are evaluated before the function, and buffers would get overwritten), but otherwise I can use a `NULL` pointer to use the default.
-
-
-
-
-
-**FIXME: more here**
-
-### Operations in Rust
-
 The bit operators in Rust are:
  * NOT: `!`
  * OR: `|`
  * AND: `&`
  * XOR: `^`
- * SHIFT: `<<` and `>>`
+ * SHIFT: `<<` and `>>`. The right shift is logical for unsigned integers and arithmetic for signed.
+
+You can see the operations in action in this code snippet:
 
 ```rust
     let x: u16 = 0xf4e2; // [f: 1111, 4: 0010, e: 1110, 2: 0010]
@@ -216,6 +174,8 @@ The bit operators in Rust are:
     println!("x shifted right by two: {}", bits(x >> 2)); // arithmetic shift
 ```
 
+that should produce this output:
+
 ```
 Unsigned:
 x:                      11110100 11100010
@@ -243,45 +203,12 @@ x shifted left by two:  11010011 10001000
 x shifted right by two: 11111101 00111000
 ```
 
-### Operations in C
+As you can see, the last right-shift drags ones in from the left. This is because it is an arithmetic shift and there was a one in the most-significant bit before the shift. When we shifted the same bit-pattern earlier, but in an unsigned integer, we shifted zero bits in; that was logical shift.
 
-```c
-    uint16_t x = 0xf4e2; // [f: 1111, 4: 0010, e: 1110, 2: 0010]
-
-    printf("Unsigned:\n");
-    printf("x:                      %s\n\n", bits(x, 0));
-    printf("x shifted left by two:  %s\n", bits(x << 2, 0));
-    printf("x shifted right by two: %s\n", bits(x >> 2, 0));
-    printf("\n");
-
-    printf("x:                      %s\n", bits(x, 0));
-    printf("x >> 2:                 %s\n", bits(x >> 2, 0));
-    printf("x & (x >> 2):           %s\n", bits(x & (x >> 2), 0));
-    printf("\n");
-
-    printf("x:                      %s\n", bits(x, 0));
-    printf("x << 2:                 %s\n", bits(x << 2, 0));
-    printf("x | (x << 2):           %s\n", bits(x | (x << 2), 0));
-    printf("\n");
-
-    printf("x:                      %s\n", bits(x, 0));
-    printf("x << 2:                 %s\n", bits(x << 2, 0));
-    printf("x ^ (x << 2):           %s\n", bits(x ^ (x << 2), 0));
-    printf("\n");
-
-    printf("x:                      %s\n", bits(x, 0));
-    printf("~x:                     %s\n", bits(~x, 0));
-    printf("\n");
-
-    int16_t y = 0xf4e2; // [f: 1111, 4: 0010, e: 1110, 2: 0010]
-    printf("Signed:\n");
-    printf("y:                      %s\n", bits(y, 0));
-    printf("y shifted left by two:  %s\n", bits(y << 2, 0));
-    // this may or may not be arithmetic shift.
-    printf("y shifted right by two: %s\n", bits(y >> 2, 0));
-```
 
 ## Two's complement arithmetic
+
+**FIXME: continue here**
 
 Ok, what's this with signed values, then, and why do we have arithmetic shift?
 
