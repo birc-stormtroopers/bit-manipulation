@@ -173,6 +173,7 @@ only works for non-negative numbers. It only tells us a magnitude (the absolute 
 
 All modern hardware now use the [two's-complement representation](https://en.wikipedia.org/wiki/Signed_number_representations#Two's_complement).[^3] There, the high bit indicates whether we should interpret a bit-pattern as a positive or negative number, just as if it were a sign-bit, but negative numbers, $-x$, 
 are formed by negating the bits in the corresponding postitive number, $x$,
+(I will write taht as $\neg x$, and it is applying the bit-wise NOT from above, `~` in Rust),
 and then adding one: $-x = \neg x + 1$.
 
 
