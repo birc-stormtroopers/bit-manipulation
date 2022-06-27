@@ -148,8 +148,8 @@ Notice that the right-shift pulls zeros in from the left. That will change if we
     #[allow(overflowing_literals)] // so we can cast the bit-pattern 0xf4e2 to i16
     let x: i16 = 0xf4e2 as i16; // [f: 1111, 4: 0010, e: 1110, 2: 0010]
     println!("Signed:");
-    println!("x:                      {:016b}", x);
-    println!("x << 2:                 {:016b}", x << 2);
+    println!("x:                      {:016b}", x);      // same bit-pattern as before
+    println!("x << 2:                 {:016b}", x << 2); // left-shift the same
     println!("x >> 2:                 {:016b}", x >> 2); // arithmetic shift
 ```
 
@@ -165,6 +165,17 @@ As you can see, this right-shift drags ones in from the left. This is because it
 
 ## Two's complement arithmetic
 
+The interpretation of bit-patterns as numbers we saw earlier
+
+$$x = \sum_{i=0}^{15}b_i\cdot 2^i$$
+
+only works for non-negative numbers. It only tells us a magnitude (the absolute value) of the number. To also allow for negative numbers, [we need to add something](https://en.wikipedia.org/wiki/Signed_number_representations). One possibility is to set asside one of the bits, a so-called *sign bit*, to indicate whether the number should be considered positive or negative. Floating point numbers do this. This has some drawbacks, most noticeable that you get two zeros, which complicates many computer instructures that rely on checks for zero.[^2] The hardware manipulation of numbers with a sign bit is also more complicated, since the sign bit determines what something like `x + y` should be; if one or both of a sign but, the result should be different from if they don't.
+
+All modern hardware now use the [two's-complement representation](https://en.wikipedia.org/wiki/Signed_number_representations#Two's_complement).[^3] There, the high bit indicates whether we should interpret a bit-pattern as a positive or negative number, just as if it were a sign-bit, but negative numbers, $-x$, 
+are formed by negating the bits in the corresponding postitive number, $x$,
+and then adding one: $-x = \neg x + 1$.
+
+
 **FIXME: continue here**
 
 Ok, what's this with signed values, then, and why do we have arithmetic shift?
@@ -173,3 +184,7 @@ Ok, what's this with signed values, then, and why do we have arithmetic shift?
 
 
 [^1]: There might be flags set in a register to tell you if any set bits were shifted out, but unless you are writing machine code, you do not have access to this, so from a high-level programming perspective the bits are lost.
+
+[^2]: You have two zeros with floating point numbers, but the instructions that care for zero are not looking at floating point numbers so it isn't an issue there).
+
+[^3]: There is also a [one's-complement representation](https://en.wikipedia.org/wiki/Signed_number_representations#Ones'_complement) but no one uses it, to the best of my knowledge.
