@@ -63,7 +63,7 @@ This operation is analogue to left-shift, and if you interpret the bits as a num
 
 ![Logical shift and division](figs/bit-operations/logical-shift-and-division-remainder.png)
 
-However, if you interpret the bit pattern as a signed integer, you might have negative numbers, and those are not encoded the same way. They are encoded in two's complement on all modern computers, and we look at those in the next section. Suffices to say here is that if you want to interpret a shift of such a number as a division, then the highest bit is what you must shift in on the left. So if the highest bit is zero, we get the same as logical shift, but if the highest bit is one, we get one-bits shifted in instead. This type of shift is called *arithmetic shift* because it adapts to the number interpretation of the bit pattern.
+However, if you interpret the bit pattern as a signed integer, you might have negative numbers, and those are not encoded the same way. They are encoded in two's complement on all modern computers, and we look at that shortly. Suffices to say here is that if you want to interpret a shift of such a number as a division, then the highest bit is what you must shift in on the left. So if the highest bit is zero, we get the same as logical shift, but if the highest bit is one, we get one-bits shifted in instead. This type of shift is called *arithmetic shift* because it adapts to the number interpretation of the bit pattern.
 
 ![Arithmetic shift](figs/bit-operations/arithmetic-shift-right.png)
 
@@ -162,6 +162,54 @@ x >> 2:                 1111110100111000
 
 As you can see, this right-shift drags ones in from the left. This is because it is an arithmetic shift and there was a one in the most-significant bit before the shift. When we shifted the same bit-pattern earlier, but in an unsigned integer, we shifted zero bits in; that was logical shift.
 
+## Unsigned arithmetic
+
+With the interpretation of binary numbers we have above, where we consider the bits as coefficients for increasing powers of two, arithmetic works as you would expect it from your elementary school math lessons, except that there are only a finite number of bits to work with.
+
+If you add two numbers, you add them from least-signficant bit to most-significant bit, with carries where necessary. For two 16-bit words, it could look like this:
+
+```
+       57 =   00111001
+    + 111 = + 01101111
+
+    carry:         1
+       57:   00111001
+      111: + 01101111
+                    0
+    
+    carry:        1
+       57:   00111001
+      111: + 01101111
+                   00
+
+    carry:       1
+       57:   00111001
+      111: + 01101111
+                  000
+
+    carry:     1
+       57:   00111001
+      111: + 01101111
+                01000
+
+    carry:    1
+       57:   00111001
+      111: + 01101111
+               101000
+
+    carry:   1
+       57:   00111001
+      111: + 01101111
+              0101000
+
+    carry:  0
+       57:   00111001
+      111: + 01101111
+             10101000
+
+       168 = 10101000
+```
+
 
 ## Two's complement arithmetic
 
@@ -171,7 +219,7 @@ $$x = \sum_{i=0}^{15}b_i\cdot 2^i$$
 
 only works for non-negative numbers. It only tells us a magnitude (the absolute value) of the number. To also allow for negative numbers, [we need to add something](https://en.wikipedia.org/wiki/Signed_number_representations). One possibility is to set asside one of the bits, a so-called *sign bit*, to indicate whether the number should be considered positive or negative. Floating point numbers do this. This has some drawbacks, most noticeable that you get two zeros, which complicates many computer instructures that rely on checks for zero.[^2] The hardware manipulation of numbers with a sign bit is also more complicated, since the sign bit determines what something like `x + y` should be; if one or both of a sign but, the result should be different from if they don't.
 
-All modern hardware now use the [two's-complement representation](https://en.wikipedia.org/wiki/Signed_number_representations#Two's_complement).[^3] There, the high bit indicates whether we should interpret a bit-pattern as a positive or negative number, just as if it were a sign-bit, but negative numbers, $-x$, 
+All modern hardware now use the [two's-complement representation](https://en.wikipedia.org/wiki/Two's_complement).[^3] There, the high bit indicates whether we should interpret a bit-pattern as a positive or negative number, just as if it were a sign-bit, but negative numbers, $-x$, 
 are formed by negating the bits in the corresponding postitive number, $x$,
 (I will write taht as $\neg x$, and it is applying the bit-wise NOT from above, `~` in Rust),
 and then adding one: $-x = \neg x + 1$.
@@ -188,4 +236,4 @@ Ok, what's this with signed values, then, and why do we have arithmetic shift?
 
 [^2]: You have two zeros with floating point numbers, but the instructions that care for zero are not looking at floating point numbers so it isn't an issue there).
 
-[^3]: There is also a [one's-complement representation](https://en.wikipedia.org/wiki/Signed_number_representations#Ones'_complement) but no one uses it, to the best of my knowledge.
+[^3]: There is also a [one's-complement representation](https://en.wikipedia.org/wiki/Ones'_complement) but no one uses it, to the best of my knowledge.

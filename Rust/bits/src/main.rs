@@ -26,8 +26,19 @@ fn basic_operations() {
     println!("x:                      {:016b}", x);
     println!("x << 2:                 {:016b}", x << 2);
     println!("x >> 2:                 {:016b}", x >> 2); // arithmetic shift
+    println!("");
+}
+
+fn unsigned_arithmethic() {
+    let x: u8 = 57;
+    let y: u8 = 111;
+    println!("{:0} =  {:08b}", x, x);
+    println!("{:0} = {:08b}", y, y);
+    println!("{:0} = {:08b}", x + y, x + y);
+    println!("");
 }
 
 fn main() {
     basic_operations();
+    unsigned_arithmethic();
 }
