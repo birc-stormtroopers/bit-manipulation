@@ -73,7 +73,7 @@ Another issue is the offset `k` we shift with. Since zeros (or maybe ones with a
 
 ### Using the operators
 
-Before we go to the next section, let's see how we can perform these operations in a  programming language. I've chosen Rust because it is a reasonable low-level langauge, and the operations we have on bits here we probably have everywhere, but at the same time it is more strict in its definition compared to a language such as C, were some operations are left undefined by the language definition. What we can do in one language, though, we can usually do in all of them, except that the syntax for the operations can be different. (The bit-wise not in Rust is `!`, for example, but it is `^` in Go and `~` in most other languages I know (that do not use `~` as a unary minus)).
+Before we go to the next section, let's see how we can perform these operations in a  programming language. I've chosen Rust because it is a reasonable low-level langauge, and the operations we have on bits here we probably have everywhere, but at the same time it is more strict in its definition compared to a language such as C, were some operations are left undefined by the language standard. What we can do in one language, though, we can usually do in all of them, except that the syntax for the operations can be different. (The bit-wise negation, `NOT` above, is `!` in Rust, for example, but it is `^` in Go and `~` in most other languages I know (that do not use `~` as a unary minus)).
 
 A word of warning if you are using Python, though: there you don't have fixed sized words, and that changes many of the operations. You cannot shift bits off the left end of a word, for example, and some operations are less straightforward. If you want to manipulate bits in Python, you need to read the documentation there.
 
@@ -156,8 +156,8 @@ Notice that the right-shift pulls zeros in from the left. That will change if we
 ```
 Signed:
 x:                      1111010011100010
-x shifted left by two:  1101001110001000
-x shifted right by two: 1111110100111000
+x << 2:                 1101001110001000
+x >> 2:                 1111110100111000
 ```
 
 As you can see, this right-shift drags ones in from the left. This is because it is an arithmetic shift and there was a one in the most-significant bit before the shift. When we shifted the same bit-pattern earlier, but in an unsigned integer, we shifted zero bits in; that was logical shift.
