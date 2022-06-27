@@ -166,7 +166,9 @@ As you can see, this right-shift drags ones in from the left. This is because it
 
 With the interpretation of binary numbers we have above, where we consider the bits as coefficients for increasing powers of two, arithmetic works as you would expect it from your elementary school math lessons, except that there are only a finite number of bits to work with.
 
-If you add two numbers, you add them from least-signficant bit to most-significant bit, with carries where necessary. For two 16-bit words, it could look like this:
+### Addition
+
+If you add two numbers, you add them from least-signficant bit to most-significant bit, with carries where necessary. For two 8-bit words, it could look like this:
 
 ```
        57 =   00111001
@@ -210,6 +212,261 @@ If you add two numbers, you add them from least-signficant bit to most-significa
        168 = 10101000
 ```
 
+If you run out of bits, though, say you want to add 128 + 128 in 8 bits, you can't represent the result.
+
+```
+      128:   10000000
+      128: + 10000000
+      =     100000000 <- requires 9 bits
+```
+
+What happens then depend on your programming language and/or the hardware you work on. For unsigned values, the typical behaviour is that any extra bits are just droped, which means that 128 + 128 equals zero in unsigned 8-bit words. This has the straightforward interpretation that you are doing arithmetic in the ring $x\mod 2^{\mathrm{ws}}$ when you work with words of size `ws`. 
+
+$$128 + 128 \mod 2^8 = 256 \mod 2^8 = 0 \mod 2^8$$
+
+Your CPU will have registers to indicate that you had an overflow, but they are not available in high-level langauges (not even in low-level languages such as C). Sometimes, this is the behaviour you want, but more often it is an error. Typically, though, it is not something you will be informed about by your programming envirnonment, and you need to check it explicitly. In Rust, overflow is a runtime error *when you compile in debug mode*,[^4] but it is silently ignored in development mode. In C, unsigned arithmetic is always to ignore overflow when variables are signed, but left undefined (just one tad worse than silently ignoring errors) when you use signed integers. Generally, overflow is something you have to worry about if you do arithmetic and there is a risk of them occurring, because you are unlikely to be told about them. What happens, is up to your langauge and system.
+
+### Subtraction
+
+Subtraction also works the way you would expect, just with a borrow instead of a carry.
+
+```
+     102 =   01100110
+   -  67 = - 01000011
+      35 =   00100011
+
+   borrow:          2
+      102:   01100100
+       67:   01000011
+                    1
+
+   borrow:         2  
+      102:   01100000
+       67:   01000011
+                   11
+
+   borrow:           
+      102:   01100000
+       67:   01000011
+                  011
+
+   borrow:           
+      102:   01100000
+       67:   01000011
+                 0011
+
+   borrow:           
+      102:   01100000
+       67:   01000011
+                00011
+
+   borrow:           
+      102:   01100000
+       67:   01000011
+               100011
+
+   borrow:           
+      102:   01100000
+       67:   01000011
+              0100011
+
+   borrow:           
+      102:   01100000
+       67:   01000011
+             00100011
+```
+
+What happens if we subtract a larger number from a smaller, though? We should get a negative number, (with 67 - 102 we would expect -35), but we don't *have* negative numbers with the current representation, and we won't have them until the next section. Let's try to just subtract like before, but when we need to borrow and there aren't any numbers left, we will borrow from off the left edge of the numbers. That is where extra bits went with overflow before, so let's try to get them back from the same place here:
+
+```
+   borrow:          
+       67:   01000011
+      102:   01100100
+                    1
+
+   borrow:          
+       67:   01000011
+      102:   01100100
+                   11
+
+   borrow:        2  
+       67:   00111011
+      102:   01100100
+                  111
+
+   borrow:          
+       67:   00111011
+      102:   01100100
+                 1111
+
+   borrow:          
+       67:   00111011
+      102:   01100100
+                11111
+
+   borrow:          
+       67:   00111011
+      102:   01100100
+               011111
+
+   borrow:    2    <- you borrowed from off the edge
+       67:   10111011
+      102:   01100100
+              1011111
+
+   borrow:
+       67:   10111011
+      102:   01100100
+    = 221:   11011111
+```
+
+The number we get is 221, which looks odd, but
+
+$$221 \mod 2^8 = -35 \mod 2^8$$
+
+so we get the same modulus arithmetic as before.
+
+What actually happens will again depend on your language and system. When we need to borrow from off the edge of the word we have an overflow, and that can be silently ignored, be an error, or be any other number of things. You need to check the documentation for your langauge to know exactly what would happen.
+
+## Multiplication and division
+
+I won't go into much detail with how multiplication and division work, because it is complicated on the hardware, but the effect is what you would be used to here as well. If you multiply two words, `w * v`, it will amount to adding `w` to `w` `v` times
+
+```
+    w  = 67  = 01000011
+             + 01000011
+   2w = 134  = 10000110
+             + 01000011
+   3w = 201 =  11001001
+```
+
+If you can do long division with decimal numbers, you can do the same with binary numbers
+
+```
+
+    201 / 3
+
+ 201 = 11001001
+   3 = 00000011
+
+      01
+ 11 ) 11001001
+      11
+      --
+       00
+
+
+      010
+ 11 ) 11001001
+      11
+      --
+       00
+       00
+       --
+        00
+
+
+      0100
+ 11 ) 11001001
+      11
+      --
+       00
+       00
+       --
+        00
+        00
+        --
+         01
+
+
+      01000
+ 11 ) 11001001
+      11
+      --
+       00
+       00
+       --
+        00
+        00
+        --
+         01
+         00
+         --
+          10
+
+
+      010000
+ 11 ) 11001001
+      11
+      --
+       00
+       00
+       --
+        00
+        00
+        --
+         01
+         00
+         --
+          10
+          10
+          --
+          100
+
+
+      0100001
+ 11 ) 11001001
+      11
+      --
+       00
+       00
+       --
+        00
+        00
+        --
+         01
+         00
+         --
+          10
+          10
+          --
+          100
+           11
+           --
+            11
+
+      01000011
+ 11 ) 11001001
+      11
+      --
+       00
+       00
+       --
+        00
+        00
+        --
+         01
+         00
+         --
+          10
+          10
+          --
+          100
+           11
+           --
+            11
+            11
+            --
+             0
+
+
+    11001001 / 00000011 = 01000011
+         201 /        3 =       67
+```
+
+Multiplication can give you overflow, and division is integer division, so if there is a remainder, you need another operator to get that (it is typically `%` instead of `/`, but it depends on your language).
+
+
 
 ## Two's complement arithmetic
 
@@ -237,3 +494,5 @@ Ok, what's this with signed values, then, and why do we have arithmetic shift?
 [^2]: You have two zeros with floating point numbers, but the instructions that care for zero are not looking at floating point numbers so it isn't an issue there).
 
 [^3]: There is also a [one's-complement representation](https://en.wikipedia.org/wiki/Ones'_complement) but no one uses it, to the best of my knowledge.
+
+[^4]: There is a [Wrapping](https://doc.rust-lang.org/stable/std/num/struct.Wrapping.html) type if you want wrapping ($x \mod 2^\mathrm{ws}$) behaviour. There is also a compiler flag, `#![allow(arithmetic_overflow)]`, but explicitly using the wrapping type makes it explicit in the code that this is the behaviour that you want.

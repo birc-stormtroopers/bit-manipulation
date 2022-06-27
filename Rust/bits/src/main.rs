@@ -36,6 +36,27 @@ fn unsigned_arithmethic() {
     println!("{:0} = {:08b}", y, y);
     println!("{:0} = {:08b}", x + y, x + y);
     println!("");
+
+    let x: u8 = 102;
+    let y: u8 = 67;
+    println!("{:0} = {:08b}", x, x);
+    println!("{:0} =  {:08b}", y, y);
+    println!("{:0} =  {:08b}", x - y, x - y);
+    println!("");
+
+    let x: i8 = 67;
+    let y: i8 = 102;
+    println!("{:0} = {:08b}", x, x);
+    println!("{:0} =  {:08b}", y, y);
+    println!("{:0} =  {:08b}", x - y, x - y);
+    println!("{:0} =  {:08b}", (x - y) as u8, (x - y) as u8);
+    println!("");
+
+    let x: u8 = 67;
+    println!("{:0} = {:08b}", x, x);
+    println!("{:0} =  {:08b}", 2 * x, 2 * x);
+    println!("{:0} =  {:08b}", 3 * x, 3 * x);
+    println!("");
 }
 
 fn main() {
