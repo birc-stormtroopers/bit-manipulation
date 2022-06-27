@@ -474,9 +474,73 @@ The interpretation of bit-patterns as numbers we saw earlier
 
 $$x = \sum_{i=0}^{15}b_i\cdot 2^i$$
 
-only works for non-negative numbers. It only tells us a magnitude (the absolute value) of the number. To also allow for negative numbers, [we need to add something](https://en.wikipedia.org/wiki/Signed_number_representations). One possibility is to set asside one of the bits, a so-called *sign bit*, to indicate whether the number should be considered positive or negative. Floating point numbers do this. This has some drawbacks, most noticeable that you get two zeros, which complicates many computer instructures that rely on checks for zero.[^2] The hardware manipulation of numbers with a sign bit is also more complicated, since the sign bit determines what something like `x + y` should be; if one or both of a sign but, the result should be different from if they don't.
+only works for non-negative numbers. It only tells us a magnitude (the absolute value) of the number. To also allow for negative numbers, [we need to add something](https://en.wikipedia.org/wiki/Signed_number_representations). One possibility is to set asside one of the bits, a so-called *sign bit*, to indicate whether the number should be considered positive or negative. Floating point numbers do this. This has some drawbacks, most noticeable that you get two zeros, which complicates many computer instructures that rely on checks for zero.[^2] The hardware manipulation of numbers with a sign bit is also more complicated, since the sign bit determines what something like `x + y` should be; if one or both of the number are negative, the hardware logic should treat the addition differently from if they are both positive.
 
-All modern hardware now use the [two's-complement representation](https://en.wikipedia.org/wiki/Two's_complement).[^3] There, the high bit indicates whether we should interpret a bit-pattern as a positive or negative number, just as if it were a sign-bit, but negative numbers, $-x$, 
+All modern hardware now use the [two's-complement representation](https://en.wikipedia.org/wiki/Two's_complement).[^3] There, the highest bit has a different interpretation: it contributes a value that is minus two to the word-size minus one, so for a 16-bit word in two's complement, the bits are interpreted as
+
+$$x = \sum_{i=0}^{14}b_i\cdot 2^i - b_{15}2^{15}$$
+
+With this interpretation, the high bit indicates whether we should interpret a bit-pattern as a positive or negative number, just as if it were a sign-bit, but it doesn't function exactly like a sign bit. There is still only one zero, which we get if all the bits are zero. If we set all except the high bit to zero, we would not get zero but a negative number, $-b_{15}2^{15}$.
+
+For the example below, I use 4-bit words (because 8-bit would be too long), and I run through all the bit patterns twice, showing the unsigned interpretation on the left and the two's-complement signed pattern on the right.
+
+```
+Unsigned 4-bit    Signed 4-bit
+                  x -2**3  Rest  = 
+0000 =  0         0        000   =  0 - 0*8 =  0
+0001 =  1         0        001   =  1 - 0*8 =  1
+0010 =  2         0        010   =  2 - 0*8 =  2
+0011 =  3         0        011   =  3 - 0*8 =  3
+0100 =  4         0        100   =  4 - 0*8 =  4
+0101 =  5         0        101   =  5 - 0*8 =  5
+0110 =  6         0        110   =  6 - 0*8 =  6
+0111 =  7         0        111   =  7 - 0*8 =  7
+1000 =  8         1        000   =  0 - 1*8 = -8
+1001 =  9         1        001   =  1 - 1*8 = -7
+1010 = 10         1        010   =  2 - 1*8 = -6
+1011 = 11         1        011   =  3 - 1*8 = -5
+1100 = 12         1        100   =  4 - 1*8 = -4
+1101 = 13         1        101   =  5 - 1*8 = -3
+1110 = 14         1        110   =  6 - 1*8 = -2
+1111 = 15         1        111   =  7 - 1*8 = -1
+0000 =  0         0        000   =  0 - 0*8 =  0
+0001 =  1         0        001   =  1 - 0*8 =  1
+0010 =  2         0        010   =  2 - 0*8 =  2
+0011 =  3         0        011   =  3 - 0*8 =  3
+0100 =  4         0        100   =  4 - 0*8 =  4
+0101 =  5         0        101   =  5 - 0*8 =  5
+0110 =  6         0        110   =  6 - 0*8 =  6
+0111 =  7         0        111   =  7 - 0*8 =  7
+1000 =  8         1        000   =  0 - 1*8 = -8
+1001 =  9         1        001   =  1 - 1*8 = -7
+1010 = 10         1        010   =  2 - 1*8 = -6
+1011 = 11         1        011   =  3 - 1*8 = -5
+1100 = 12         1        100   =  4 - 1*8 = -4
+1101 = 13         1        101   =  5 - 1*8 = -3
+1110 = 14         1        110   =  6 - 1*8 = -2
+1111 = 15         1        111   =  7 - 1*8 = -1
+```
+
+The reason I wrote all the numbers twice is that I wanted you to think about the arithmetic with the overflow behaviour, i.e., arithmetic modulus $2^\mathrm{ws}$. If we consider the unsigned numbers, this means that we are moving around a circle of positive numbers. Adding two numbers `x + y` means moving from the number `x` and `y` steps clockwise, subtracting `x - y` means moving from `x` by `y` steps counter-clockwise.
+
+![Unsigned 4-bit words, modulus arithmetic](figs/twos-complement/u4.png)
+
+If we reinterpret the modulus circle with two's complement, the addition and subtraction works the same way: addition means moving a number of steps clockwise and subtraction moving a number of steps counter-clockwise.
+
+![Signed 4-bit words, modulus arithmetic](figs/twos-complement/i4.png)
+
+With modulus arithmetic, it is just a question of which number we use to represent the modulus class. With unsigned numbers, we use the numbers `0, 1, 2, ..., 15`, but with two's complement, we use negative numbers for the latter half of the classes.
+
+![Equivalent modulus arithmetic](figs/twos-complement/modulo-line.png)
+
+Notice that this means that we have one more negative number than positive. On the figures, I've painted zero green, so zero is lumped together with the positive numbers. There are an equal number of red and green, but one of the green is zero while the rest are positive numbers, while all of the red are negative numbers.
+
+![Positive and negative numbers, paired up](figs/twos-complement/pairing-numbers.png)
+
+
+**FIXME**
+
+ but negative numbers, $-x$, 
 are formed by negating the bits in the corresponding postitive number, $x$,
 (I will write taht as $\neg x$, and it is applying the bit-wise NOT from above, `~` in Rust),
 and then adding one: $-x = \neg x + 1$.
