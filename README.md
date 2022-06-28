@@ -486,7 +486,7 @@ For the example below, I use 4-bit words (because 8-bit would be too long), and 
 
 ```
 Unsigned 4-bit    Signed 4-bit
-                  x -2**3  Rest  = 
+                  * -2**3  Rest  = 
 0000 =  0         0        000   =  0 - 0*8 =  0
 0001 =  1         0        001   =  1 - 0*8 =  1
 0010 =  2         0        010   =  2 - 0*8 =  2
@@ -537,13 +537,14 @@ Notice that this means that we have one more negative number than positive. On t
 
 ![Positive and negative numbers, paired up](figs/twos-complement/pairing-numbers.png)
 
+In other words, the smallest possible negative number in a finite number of bits, when we interpret them as two's-complement numbers, does not have a corresponding positive number.
 
-**FIXME**
+You might now wonder if there is a simple way to translate the bit-pattern of a positive number $x$ into the corresponding
+negative number, $-x$. There is: you negate the bits
+in $x$
+to get $\neg x$, and then you add one
 
- but negative numbers, $-x$, 
-are formed by negating the bits in the corresponding postitive number, $x$,
-(I will write taht as $\neg x$, and it is applying the bit-wise NOT from above, `~` in Rust),
-and then adding one: $-x = \neg x + 1$.
+$$-x = \neg x + 1.$$
 
 
 **FIXME: continue here**
