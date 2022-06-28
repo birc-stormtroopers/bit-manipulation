@@ -654,8 +654,6 @@ Another clear example of this is dividing -1 by two. We would expect -1/2 = 0 fo
 
 When you shift right, you still get multiplication by powers of two. Consider the two's-complement interpretation of a number, and multiply the number by two:
 
-**FIXME: continue here**
-
 $$2\times\left(-b_{w-1}\cdot 2^{w-1} + \sum_{i=0}^{w-2} b_i\cdot 2^i\right)
 =-b_{w-1}\cdot 2^w + \sum_{i=0}^{w-2} b_i\cdot 2^{i+1}$$
 
