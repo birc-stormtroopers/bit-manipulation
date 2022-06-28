@@ -580,6 +580,82 @@ The second example also shows another nice property of two's-complement: if you 
 $y$ and do addition,
 $x - y = x + (-y)$. This shouldn't be surprising from your knowledge of arithmetic, but it works perfectly with the bit patterns as well, if you use two's complement: first you change the sign and then you add as if there were no such thing as signed integers.
 
+The reason we have an arithmetic shift operator is because we have two's-complement integers. Dividing by powers of two is easy and efficiently done with right-shifting, but if we always shift in zero-bits, it would only work for unsigned values.
+
+If we take a positive number and divide it by a power of two, we get what amounts to a shift to the rigth. (Of course, we usually think about it the other way around; we use shifts to divide).
+
+```
+64               = 01000000
+64 / 4 = 64 >> 2 = 00010000 = 16
+```
+
+But if we take a negative number, and implement division of a power of two with a shift, we won't get the right answer:
+
+```
+-64                = 11000000
+-64 / 4 = -64 >> 2 = 00110000 = 48
+```
+
+We *almost* get the right answer; the answer we get is the positive number the matches the negative number we wanted on the modulus circle, but it isn't the number we wanted.
+
+If instead we use arithemetic shift, we maintain the sign bit on the number, and draggint ones in from the left ensures us that we get the bit-pattern for the right negative number.
+
+```
+-64                = 11000000
+-64 / 4 = -64 >> 2 = 11110000 = -16
+```
+
+To see why this works, consider the two's-complement interpretation of a bit pattern once more:
+
+$$x = -b_{w-1}2^{w-1} + \sum_{i=0}^{w-2} b_i\cdot 2^i$$
+
+If we have a negative number (you can check for positive numbers yourself), then the first bit is set, so it contributes a value of $-2^{w-1}$ and the rest sum to some positive contribution.
+
+$$x = -2^{w-1} + \sum_{i=0}^{w-2} b_i\cdot 2^i$$
+
+If we just treat this as basic arithmetic, we can divide by two through all the terms, and we will see that this amounts to an arithmetic shift. If one shift divides by two, then doing it $k$ times will amount to shifting
+$k$ times, and if one time amounts to dividing by two, then
+$k$ times amounts to dividing by
+$2^k$.
+
+Dividing all terms by two we get:
+
+$$x/2 = -2^{w-2} + \sum_{i=0}^{w-2} b_i\cdot 2^{i-1}
+      = -2^{w-2} + \sum_{i=0}^{w-3} b_{i+1}\cdot 2^i + b_0/2$$
+
+and remember that a negative number such as $-2^{w-2}$ is represented in two's-complement as
+
+$$-2^{w-2} = -2^{w-1} + 2^{w-2}$$
+
+That means that dividing by two gives us the equation
+
+$$x/2 = -2^{w-1} + 2^{w-2} + \sum_{i=0}^{w-3} b_{i+1}\cdot 2^i + b_0/2.$$
+
+We now have the two highest bit set, and all the other bits contribute half as much as before, i.e., they are shifted right by one.
+
+If the lowest bit, $b_0$, is zero, this is a division by two. But what happens if we cannot divide
+$x$ exactly? What if
+$b_0=1$?
+We cannot represent fractions with this representation, so we are doing integer division, but is that what we are getting?
+
+When we shift, the low bit(s) that are shifted off the edge of the word are thrown away, so in the expression above $b_0/2$ means zero. If we had a positive number, throwing away the half-bit would round the result down towards zero, which is what integer division does.
+
+But if we throw away the positive contribution $b_0/2$ from the sum, we are not rounding up towards zero; instead we are rounding down.
+
+$$-2^{w-1} + 2^{w-2} + \sum_{i=0}^{w-3} b_{i+1}\cdot 2^i < -2^{w-1} + 2^{w-2} + \sum_{i=0}^{w-3} b_{i+1}\cdot 2^i + b_0/2$$
+
+so we are rounding down towords minus infinity. In this sense, arithmetic shift is *not* like division. It is only division if there is no remainder; if there is a remainder, it rounds in the wrong direction.
+
+Another clear example of this is dividing -1 by two. We would expect -1/2 = 0 for integer division, but if you shift -1, the bit pattern that consists of all ones, an arithmetic shift would give us -1 back.
+
+```
+  11111111 >> 1 = 11111111
+```
+
+**FIXME: continue here**
+
+$$2\times\left(-2^{w-1} + \sum_{i=0}^{w-2} b_i\cdot 2^i\right)
+=-2^w + \sum_{i=0}^{w-2} b_i\cdot 2^{i+1}$$
 
 **FIXME: continue here**
 

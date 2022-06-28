@@ -81,6 +81,25 @@ fn twos_complement() {
     println!("{:0} = {:08b}", y, y);
     println!(" {:0} = {:08b}", x + y, x + y);
     println!("");
+
+    let x: i8 = 64;
+    println!("{:0}               = {:08b}", x, x);
+    println!("{:0} / 4 = {:0} >> 2 = {:08b} = {:0}", x, x, x >> 2, x >> 2);
+    println!("");
+    let x: i8 = -64;
+    println!("{:0}                = {:08b}", x, x);
+    println!("{:0} / 4 = {:0} >> 2 = {:08b} = {:0}", x, x, x >> 2, x >> 2);
+    println!("");
+    let x: i8 = -64;
+    println!("{:0}                = {:08b}", x, x);
+    println!(
+        "{:0} / 4 = {:0} >> 2 = {:08b} = {:0}",
+        x,
+        x,
+        (x as u8) >> 2,
+        (x as u8) >> 2
+    );
+    println!("");
 }
 
 fn main() {
