@@ -546,6 +546,40 @@ to get $\neg x$, and then you add one
 
 $$-x = \neg x + 1.$$
 
+![Make a positive number negative](figs/twos-complement/make-negative.png)
+
+This doesn't just work for changing positive numbers into negative but also for changing negative numbers into positive
+
+![Changing sign](figs/twos-complement/change-sign-circle.png)
+
+with the caveat that if you try to change the smallest negative number into the corresponding positive number, which as you now know doesn't exit, you end up with the smallest negative number again.
+
+![Negative MIN_INT](figs/twos-complement/minus-smallest.png)
+
+There are several nice properties about this representation. One of them is that we don't need special logical to add positive and negative numbers. If we treat all numbers as unsigned and add them with overflow, then we also handle signed addition if we instead interpret the numbers that way.
+
+```
+Signed:
+  100 = 01100100
++ 130 = 10000010
+----------------
+  230 = 11100110
+================
+
+Unsigned:
+   100 = 01100100
++ -126 = 10000010
+-----------------
+   -26 = 11100110
+=================
+```
+
+The bit addition is the same in the two examples, we just interpret the first as arithmetic in unsigned binary numbers and the second as arithmetic in two's-complement.
+
+The second example also shows another nice property of two's-complement: if you want to do subtraction, $x - y$, then you can just change the sign of
+$y$ and do addition,
+$x - y = x + (-y)$. This shouldn't be surprising from your knowledge of arithmetic, but it works perfectly with the bit patterns as well, if you use two's complement: first you change the sign and then you add as if there were no such thing as signed integers.
+
 
 **FIXME: continue here**
 

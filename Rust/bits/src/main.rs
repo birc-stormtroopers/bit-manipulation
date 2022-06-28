@@ -59,7 +59,32 @@ fn unsigned_arithmethic() {
     println!("");
 }
 
+#[allow(arithmetic_overflow)]
+fn twos_complement() {
+    let x: i8 = 9;
+    println!("{:0}  =  {:08b}", x, x);
+    println!("{:0} = {:08b}", !x, !x);
+    println!("{:0}  = {:08b}", -x, -x);
+    println!("");
+
+    let x: u8 = 100;
+    let y: u8 = 130;
+    println!("{:0} = {:08b}", x, x);
+    println!("{:0} = {:08b}", y, y);
+    println!("{:0} = {:08b}", x + y, x + y);
+    println!("");
+
+    let x: i8 = 100;
+    #[allow(overflowing_literals)]
+    let y: i8 = 130 as i8;
+    println!(" {:0} = {:08b}", x, x);
+    println!("{:0} = {:08b}", y, y);
+    println!(" {:0} = {:08b}", x + y, x + y);
+    println!("");
+}
+
 fn main() {
     basic_operations();
     unsigned_arithmethic();
+    twos_complement();
 }
