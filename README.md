@@ -652,14 +652,139 @@ Another clear example of this is dividing -1 by two. We would expect -1/2 = 0 fo
   11111111 >> 1 = 11111111
 ```
 
-**FIXME: continue here**
-
-$$2\times\left(-2^{w-1} + \sum_{i=0}^{w-2} b_i\cdot 2^i\right)
-=-2^w + \sum_{i=0}^{w-2} b_i\cdot 2^{i+1}$$
+When you shift right, you still get multiplication by powers of two. Consider the two's-complement interpretation of a number, and multiply the number by two:
 
 **FIXME: continue here**
 
-Ok, what's this with signed values, then, and why do we have arithmetic shift?
+$$2\times\left(-b_{w-1}\cdot 2^{w-1} + \sum_{i=0}^{w-2} b_i\cdot 2^i\right)
+=-b_{w-1}\cdot 2^w + \sum_{i=0}^{w-2} b_i\cdot 2^{i+1}$$
+
+If we have a positive number $b_{w-1}$ is zero, and we have increased each bit's contribution by a factor two, amounting to shifting them one position to the right.
+
+If we have a negative number we have
+
+$$-b_{w-1}\cdot 2^w + \sum_{i=0}^{w-2} b_i\cdot 2^{i+1}
+= -2^w + b_{w-2}\cdot 2^{w-1} + \sum_{i=1}^{w-2} b_{i-1}\cdot 2^i + 0\cdot 2^0$$
+
+which, since $-2^w = -2^{w-1} - 2^{w-2}$ is
+
+$$-2^{w-1} + (b_{w-2} - 1)\cdot 2^{w-1} + \sum_{i=1}^{w-2} b_{i-1}\cdot 2^i + 0\cdot 2^0.$$
+
+I know we don't have two bit-locations for $w-1$, but we don't have one for
+$w$ either, so at this point we don't have a valid bit pattern, but we are just doing arithmetic on numbers.
+
+If the new highest bit, $b_{w-2}$, is a one, then the second term cancels and we have the number
+
+$$-2^{w-1} + \sum_{i=1}^{w-2} b_{i-1}\cdot 2^i + 0\cdot 2^0.$$
+
+where the remaining bits all have a magnitude that is a factor of two higher, i.e., they are shifted left, and we have shifted a zero into the least significant position. In other words, if we shift a one into the left-most bit, a shift and a multiplication by two is the same.
+
+```
+ -1 = 1111
+ -1 << 1 = 1110 = -2
+ -2 = 1110
+ -2 << 1 = 1100 = -4
+ -3 = 1101
+ -3 << 1 = 1010 = -6
+ -4 = 1100
+ -4 << 1 = 1000 = -8
+```
+
+If the new left-most bit is zero, on the other hand, we have
+
+$$-2^{w-1} + (b_{w-2} - 1)\cdot 2^{w-1} + \sum_{i=1}^{w-2} b_{i-1}\cdot 2^i + 0\cdot 2^0
+= -2^{w-1} - 2^{w-1} + \sum_{i=1}^{w-2} b_{i-1}\cdot 2^i + 0\cdot 2^0
+= -2^{w} + \sum_{i=1}^{w-2} b_{i-1}\cdot 2^i + 0\cdot 2^0$$
+
+where we can't represent $-2^{w}$ in a
+$w$-bit word, so it is dropped, leaving
+
+$$\sum_{i=1}^{w-2} b_{i-1}\cdot 2^i + 0\cdot 2^0$$
+
+We have an overflow, where we are now missing $-2^w$. So we get a number that, if we subtracted
+$2^w$ from it, would be the right result.
+
+```
+ -5 = 1011
+ -5 << 1 = 0110 = 6 (-2**4 = -10)
+ -6 = 1010
+ -6 << 1 = 0100 = 4 (-2**4 = -12)
+ -7 = 1001
+ -7 << 1 = 0010 = 2 (-2**4 = -14)
+ -8 = 1000
+ -8 << 1 = 0000 = 0 (-2**4 = -16)
+```
+
+Overflows are not unique to two's-complement numbers. If you shift bits off the end, you move past the range of numbers you can represent, and you are doing arithemtics in the ring $\mod 2^w$ instead of the integers. That is just a consequence of working with fixed-sized words. At least the signed and unsigned integers work roughly the same when it comes to multiplication of powers of two and shifting bits to the left...
+
+If this all seems a bit overwheling by now, have no fear. You rarely have to think too much about two's-complement arithmetic to exploit bit-manipulation for tricks. The only thing you *really* need to know about two's-complement is the equation $-x = \neg x + 1$. That comes in handy from time to time, especially if you want to translate boolean values into bit masks. This is because boolean values are often represented as the numbers 0 for false and 1 for true, or the bit-patterns `000....000` and `000...001`, but often you would rather have bit masks `000...000` and `111...111` (all zeros or all ones). That is, if you have a boolean value `b` but you want a mask `m` such that
+
+```
+ b = 0000 -> m = 0000
+ b = 0001 -> m = 1111
+```
+
+You can do that in several ways. If you have arithmetic shift, you could shift `b` `w-1` to the left and then `w-1` to the right:
+
+```
+0000 << 3 = 0000, 0000 >> 3 = 0000
+0001 << 3 = 1000, 1000 >> 3 = 1111
+```
+
+(but this only works with arithmetic shift and not logical shift).
+
+You could shift and OR a couple of time (doubling the shift each time, so a $\log w$ number of times):
+
+```
+0000 | (0000 << 1) = 0000
+0000 | (0000 << 2) = 0000
+
+0001 | (0001 << 1) = 0011
+0011 | (0011 << 2) = 1111
+```
+
+but by far the easiest way, and only one hardware instruction, is to change the sign of `b`:
+
+```
+b = 0000; -b = 0000 (~0000 + 1 = 1111 + 1 = 0000 (with overflow))
+b = 0001; -b = 1111 (~0001 + 1 = 1110 + 1 = 1111)
+```
+
+
+
+## A bag of bit-tricks
+
+That was the basic theory. The most fundamental bit-operations, and how we treat bit-patterns as numbers, both signed and unsigned, on modern computers. From here on, it is just a long list of various tricks you can use for manipulating computer words with bit operations. If you think of more, please make a pull request. It is always fun to have a large catalogue of clever ideas.
+
+### Getting the right-most set bit
+
+`y = x & -x`
+
+```
+x      = 00101100
+
+~x     = 11010011
++1     = 00000001
+-x     = 11010100
+
+x      = 00101100
+-x     = 11010100
+x & -x = 00000100
+```
+     
+
+**FIXME: more below***
+
+
+
+
+
+
+
+
+
+
+
 
 
 
