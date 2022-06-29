@@ -867,6 +867,109 @@ fn clear_bit(x: u8, i: u8) -> u8 {
 
 ### Bit-masks
 
+Getting and setting individual bits is generally useful, but sometimes we want to manipulate larger chunks of contiguous bits. For that, we also use shift, OR, and AND, but just with larger blocks, called *masks*.
+
+Before we start constructing masks, there is an observation we need to make. If you have a bit pattern `x` and you subtract 1 from it, the rightmost one-bit (if there is one) gets flipped to zero while the bits lower than that are flipped to one, and if there isn't any set bits, then `x - 1 = -x` (because `0 - 1 = -1`) which are all set bits.
+
+```
+x         = 00000000
+x - 1     = 11111111
+
+x         = 00001101
+x - 1     = 00001100
+
+x         = 00001110
+x - 1     = 00001101
+
+x         = 00001111
+x - 1     = 00001110
+
+x         = 00010000
+x - 1     = 00001111
+```
+
+This is just a consequence of how subtraction with borrowing works; we borrow from the right-most 1 all the way down to position zero in order to subtract one. The case where `x` is the same thing, but in arithmetic modulo $2^w$.
+
+Depending on how anal the type checker in your langauge is, you might have to cast between signed and unsigned to subtract with overflow, which happens for `x = 0`, but in Rust it looks like this:
+
+```rust
+fn minus_one(x: u8) -> u8 {
+    (x as i8 - 1) as u8
+}
+```
+
+It is only necessary for `x = 0` where `x - 1` gives an overflow; if we knew `x > 0` we could stay in `u8` the entire time.
+
+We can use this to get a contiguous range of set bits that we can use as a mask. If you want to extract the last `k` bits from a word, you want to set those `k` bits to one and everything else to zero. So make a word with one bit at position `k` (since we index from zero, that is one bit to the left of where you want your mask to start) and then subtract one from it. The one-bit word you can make by shifting one left by `k`.
+
+```
+1 << 0 = 00000001
+mask   = 00000000
+
+1 << 2 = 00000100
+mask   = 00000011
+
+1 << 3 = 00001000
+mask   = 00000111
+
+1 << 4 = 00010000
+mask   = 00001111
+
+1 << 5 = 00100000
+mask   = 00011111
+```
+
+If you want a mask that doesn't start at index zero, you can start by making a mask of the right width and then shift it up to where you want it.
+
+```rust
+fn mask(low: u8, high: u8) -> u8 {
+    let mask_width = high - low;
+    let low_mask = (1 << mask_width) - 1;
+    low_mask << low
+}
+```
+
+```
+Mask [0,0)
+low_mask = (1 << 0) - 1  = 00000000
+mask     = low_mask << 0 = 00000000
+
+Mask [0,1)
+low_mask = (1 << 1) - 1  = 00000001
+mask     = low_mask << 0 = 00000001
+
+Mask [2,7)
+low_mask = (1 << 5) - 1  = 00011111
+mask     = low_mask << 2 = 01111100
+
+Mask [3,5)
+low_mask = (1 << 2) - 1  = 00000011
+mask     = low_mask << 3 = 00011000
+```
+
+The latter is something you sometimes use to set specific bits in a word while leaving the rest unchanged, but mostly you use masks that start at zero and use shift to move the bits in the word down there.
+
+You can use masks to pack data into smaller words that your hardware readily gives you access to. For example, no hardware I am aware lets me address in units smaller than a byte (8-bit words), but since there are only four different nucleotides in DNA (and ignoring that we have to represent uncertainty and such), I should be able to represent each nucleotide in two bits. Well, I can. I can, for example, pack four two-bit words into one eight-bit word and get the packed data out again:
+
+```rust
+fn pack_dna(x: u8, y: u8, z: u8, w: u8) -> u32 {
+    let res = x as u32;
+    let res = (res << 2) | y as u32;
+    let res = (res << 2) | z as u32;
+    let res = (res << 2) | w as u32;
+    res
+}
+
+fn unpack_dna(dna: u32) -> (u8, u8, u8, u8) {
+    let mask = (1 << 2) - 1; // 0x03
+    let w = ((dna >> 0) & mask) as u8;
+    let z = ((dna >> 2) & mask) as u8;
+    let y = ((dna >> 4) & mask) as u8;
+    let x = ((dna >> 6) & mask) as u8;
+    (x, y, z, w)
+}
+```
+
 **FIXME**
 
 ### The right-most set bit

@@ -145,6 +145,34 @@ fn clear_bit(x: u8, i: u8) -> u8 {
     x & !(1 << i)
 }
 
+fn mask(low: u8, high: u8) -> u8 {
+    let mask_width = high - low;
+    let low_mask = (1 << mask_width) - 1;
+    let mask = low_mask << low;
+    println!("Mask [{},{})", low, high);
+    println!("low_mask = (1 << {}) - 1  = {:08b}", mask_width, low_mask);
+    println!("mask     = low_mask << {} = {:08b}", low, mask);
+    println!("");
+    mask
+}
+
+fn pack_dna(x: u8, y: u8, z: u8, w: u8) -> u32 {
+    let res = x as u32;
+    let res = (res << 2) | y as u32;
+    let res = (res << 2) | z as u32;
+    let res = (res << 2) | w as u32;
+    res
+}
+
+fn unpack_dna(dna: u32) -> (u8, u8, u8, u8) {
+    let mask = (1 << 2) - 1; // 0x03
+    let w = ((dna >> 0) & mask) as u8;
+    let z = ((dna >> 2) & mask) as u8;
+    let y = ((dna >> 4) & mask) as u8;
+    let x = ((dna >> 6) & mask) as u8;
+    (x, y, z, w)
+}
+
 fn log2(x: u8) -> Option<(u8, u8)> {
     if x == 0 {
         return None;
@@ -205,6 +233,16 @@ fn main() {
     clear_bit(128 - 3, 1);
     clear_bit(128 - 3, 2);
     clear_bit(128 - 3, 3);
+
+    mask(0, 0);
+    mask(0, 1);
+    mask(2, 7);
+    mask(3, 5);
+
+    let dna = pack_dna(0, 1, 2, 3);
+    println!("dna = {:08b}", dna);
+    let (x, y, z, w) = unpack_dna(dna);
+    println!("{} {} {} {}", x, y, z, w);
 
     log2_test();
 }
