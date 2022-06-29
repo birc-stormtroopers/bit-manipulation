@@ -756,9 +756,13 @@ That was the basic theory. The most fundamental bit-operations, and how we treat
 
 ### Getting and setting bits
 
-**FIXME**
+Perhaps the most fundamental task we could think of is getting an individual bit from a word. To do that, shift a one in under the bit and mask with `&`. If you want bit `i`, then you do `x & (1 << i)`. It gives you a new word where bit `i` has the same value as `x[i]`, and all remaining bits zero.
 
 ```
+x            = 01111101
+1 << 0       = 00000001
+x & (1 << 0) = 00000001
+
 x            = 01111101
 1 << 1       = 00000010
 x & (1 << 1) = 00000000
@@ -772,11 +776,17 @@ x            = 01111101
 x & (1 << 3) = 00001000
 ```
 
+In Rust it could look like this (for eight-bit words):
+
 ```rust
 fn get(x: u8, i: u8) -> u8 {
     x & (1 << i)
 }
 ```
+
+If you want to interpret the result as a boolean value, there are two issues. The first is how hardware generally interpret bit-patterns as truth-values. Most hardware instructions consider the bit pattern with all zeros to be false and anything else to be true. Many programming langauges do the same, considering anything "zero-like" (empty lists or strings, the number zero, etc.) to mean false and anything else to mean true. This is sometimes called [truthiness](https://en.wikipedia.org/wiki/Truthiness) after The Colbert Report. If you in such a language, an integer can already be used as a truth(y) value, and you don't have to do anything more to interpret the bit pattern you get from `x & (1 << i)`.
+
+Some languages are more strict about their type system, though, and do not consider any type of integer a boolean value. If so, you can easily translate the integer the bit manipulations are making into a boolean value; just compare the result with zero. If the bit pattern `x & (1 << i)` is zero (which we should interpret as false), then `x & (1 << i) != 0` is false, while if `x & (1 << i)` is non-zero, `x & (1 << i) != 0` is true. Comparing with zero has the effect of telling the type system that any non-zero value should be `true` and only zero should be `false`.
 
 ```rust
 fn get_bool(x: u8, i: u8) -> bool {
@@ -784,11 +794,17 @@ fn get_bool(x: u8, i: u8) -> bool {
 }
 ```
 
+The extra comparsion is not necessarily anything you pay for. The compiler can figure out that you just want a truth-value out of an integer, and it can usually make something useful out of that. [It can actually be slightly more efficient](https://godbolt.org/z/7WhbPToT8), since we ask for simpler output, so in the linked-to example, the assembly code for the boolean version directly compares the bit and sets the result to `00000000` or `00000001` based on the comparison.
+
+If you wanted to translate the bit lookup into zero or one, `00000000` or `00000001`, you could also have done this:
+
 ```rust
 fn get_zero_one(x: u8, i: u8) -> u8 {
     (x >> i) & 1
 }
 ```
+
+If your language represents true and false as zero and one (when working with bools and not some truthiness) casting a boolean value to an integer would also give you zero or one, so `get_zero_one(x, i)` will give you the same as `get_bool(x, i) as u8`.
 
 ### Bit-masks
 
