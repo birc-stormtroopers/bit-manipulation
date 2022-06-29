@@ -754,9 +754,53 @@ b = 0001; -b = 1111 (~0001 + 1 = 1110 + 1 = 1111)
 
 That was the basic theory. The most fundamental bit-operations, and how we treat bit-patterns as numbers, both signed and unsigned, on modern computers. From here on, it is just a long list of various tricks you can use for manipulating computer words with bit operations. If you think of more, please make a pull request. It is always fun to have a large catalogue of clever ideas.
 
-### Getting the right-most set bit
+### Getting and setting bits
 
-`y = x & -x`
+**FIXME**
+
+```
+x            = 01111101
+1 << 1       = 00000010
+x & (1 << 1) = 00000000
+
+x            = 01111101
+1 << 2       = 00000100
+x & (1 << 2) = 00000100
+
+x            = 01111101
+1 << 3       = 00001000
+x & (1 << 3) = 00001000
+```
+
+```rust
+fn get(x: u8, i: u8) -> u8 {
+    x & (1 << i)
+}
+```
+
+```rust
+fn get_bool(x: u8, i: u8) -> bool {
+    (x & (1 << i)) != 0
+}
+```
+
+```rust
+fn get_zero_one(x: u8, i: u8) -> u8 {
+    (x >> i) & 1
+}
+```
+
+### Bit-masks
+
+**FIXME**
+
+### The right-most set bit
+
+**FIXME**
+
+#### Get the right-most bit
+
+If you have a word `x`, you might want to have only the right-most bit in `x`. Assuming `x` is not zero, this expression `y = x & -x` will set `y` to the word that consists of the right-most bit in `x` and only the right-most bit. If `x` is zero, `y` is zero as well.
 
 ```
 x      = 00101100
@@ -769,7 +813,29 @@ x      = 00101100
 -x     = 11010100
 x & -x = 00000100
 ```
-     
+
+In Rust, it could look something like this:
+
+```rust
+fn get_rightmost(x: u8) {
+    x & -(x as i8) as u8
+}
+```
+
+The casting stuff (`as i8`, `as u8`) is necessary because you cannot change the sign of an unsigned number in Rust, but you could also just work with signed numbers.
+
+```rust
+fn get_rightmost(x: i8) {
+    x & -x
+}
+```
+
+
+#### Is a number a power of two?
+
+If `x` is a power of two, it can have at most one bit set. (Zero is a power of two, and then `x` has zero bits set, but otherwise $x=2^i$ means that `x` only has bit `i` set).
+
+
 
 **FIXME: more below***
 

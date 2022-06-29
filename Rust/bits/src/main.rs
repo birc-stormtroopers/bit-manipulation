@@ -102,8 +102,52 @@ fn twos_complement() {
     println!("");
 }
 
+fn get_rightmost(x: i8) {
+    println!("x      = {:08b}", x);
+    println!("");
+    println!("!x     = {:08b}", !x);
+    println!("+1     = {:08b}", 1);
+    println!("-x     = {:08b}", -x);
+    println!("");
+    println!("x & -x = {:08b}", x & -x);
+    println!("");
+}
+
+fn get(x: u8, i: u8) -> u8 {
+    println!("x            = {:08b}", x);
+    println!("1 << {}       = {:08b}", i, 1 << i);
+    println!("x & (1 << {}) = {:08b}", i, x & (1 << i));
+    println!("");
+    x & (1 << i)
+}
+
+fn get_bool(x: u8, i: u8) -> bool {
+    (x & (1 << i)) != 0
+}
+
+fn get_zero_one(x: u8, i: u8) -> u8 {
+    (x >> i) & 1
+}
+
 fn main() {
     basic_operations();
     unsigned_arithmethic();
     twos_complement();
+    get_rightmost(98);
+
+    get(128 - 3, 1);
+    get(128 - 3, 2);
+    get(128 - 3, 3);
+    println!(
+        "{} {} {}",
+        get_bool(128 - 3, 1),
+        get_bool(128 - 3, 2),
+        get_bool(128 - 3, 3)
+    );
+    println!(
+        "{} {} {}",
+        get_zero_one(128 - 3, 1),
+        get_zero_one(128 - 3, 2),
+        get_zero_one(128 - 3, 3)
+    );
 }
