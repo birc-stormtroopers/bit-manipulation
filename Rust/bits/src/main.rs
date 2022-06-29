@@ -173,6 +173,24 @@ fn unpack_dna(dna: u8) -> (u8, u8, u8, u8) {
     (x, y, z, w)
 }
 
+fn popcount(x: u8) -> u8 {
+    let mut count = 0;
+    let mut y = x;
+    while y > 0 {
+        count += 1;
+        y = y & (y - 1);
+    }
+    return count;
+}
+
+fn twopow(x: u8) -> bool {
+    return x != 0 && x & (x - 1) == 0;
+}
+
+fn twopow2(x: u8) -> bool {
+    return x != 0 && x == (x & -(x as i8) as u8);
+}
+
 fn log2(x: u8) -> Option<(u8, u8)> {
     if x == 0 {
         return None;
@@ -245,4 +263,10 @@ fn main() {
     println!("{} {} {} {}", x, y, z, w);
 
     log2_test();
+
+    for i in 0..8 {
+        println!("popcount({}) = {}", i, popcount(i));
+        println!("twopow({}) = {}", i, twopow(i));
+        println!("twopow2({}) = {}", i, twopow2(i));
+    }
 }

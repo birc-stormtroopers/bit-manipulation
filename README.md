@@ -970,15 +970,71 @@ fn unpack_dna(dna: u8) -> (u8, u8, u8, u8) {
 }
 ```
 
-**FIXME**
 
 ### The right-most set bit
 
-**FIXME**
+The next couple of tricks we consider relates to the right-most set bit, that is the right-most bit that is one.
 
-#### Get the right-most bit
+We already saw that we can flip all the bits up to and including the rightmost set bit of a word by subtracting one from any non-zero word.
 
-If you have a word `x`, you might want to have only the right-most bit in `x`. Assuming `x` is not zero, this expression `y = x & -x` will set `y` to the word that consists of the right-most bit in `x` and only the right-most bit. If `x` is zero, `y` is zero as well.
+![Flipping the rightmost set bit](figs/rightmost/flipping-rightmost.png)
+
+There are a couple of things we can do with that...
+
+#### Get the rightmost bit
+
+Because `x - 1` flips the bits up to and including the rightmost set bit, the bits in `x` and `x - 1` are the same down to that rightmost bit and then inverted after that.
+
+![Getting the right-most bit](figs/rightmost/equal-negated.png)
+
+That makes it easy to unset the last bit. For the AND operator, we have the identitites `b & b = b` (if `b` is a bit, it is zero or one, and anding it with itself will either be `0 & 0 = 0` or `1 & 1 = 1`) and `b & !b` (we get either `0 & 1 = 0` or `1 & 0 = 0`). If we AND `x` and `x - 1`, the first part where the words are identical remains the same, but from the rightmost bit in `x` we set everything to zero.
+
+![Getting only rightmost bit](figs/rightmost/unset-rightmost.png)
+
+You can use this to count how many set bits you have in time proportional to how many set bits there are (as opposed to running through all the bits which takes time proportional to the word size):
+
+```rust
+fn popcount(x: u8) -> u8 {
+    let mut count = 0;
+    let mut y = x;
+    while y > 0 {
+        count += 1;
+        y = y & (y - 1);
+    }
+    return count;
+}
+```
+
+This is Kernighan’s algorithm, but there are much better ways of counting the number of set bits, the so-called *population count*, and we get back to that later. This is just an example of what you can do with what we just learned.
+
+If you want to set the lower bits to one instead, you can use the XOR operator instead. With XOR, `b ^ b = 0` and `b ^ !b = 1`, so the part where `x` and `x-1` are the same will be set to zero while the positions from `x`'s rightmost set bit and down will be set to one (and you can of course shift the word if you don't want to include the position of the rightmost bit).
+
+![Setting lower bits to one](figs/rightmost/oned-rightmost.png)
+
+#### Is a number a power of two?
+
+If `x` is a power of two, it can have at most one bit set. (A power of two is a number on the form $x=2^i$ which means that `x` has exactly one bit set).
+
+Well, we know how to flip the rightmost set bit in words that aren't zero, and if we do that to a power of two we have flipped the only set bit, and the result must thus be zero. That tells us that if `x > 0`, `(x & (x - 1)) == 0` is true if and only if we have a power of two. For `x == 0`, which is not a power of two (there is no exponent $i$
+such that $2^i = 0$), `x & (x - 1)` is `0 & -1 == 0`, so the expression gives us the wrong answer here (that 0 is a power of two when it isn't). We can get around that by explicitly checking for zero:
+
+```rust
+fn twopow(x: u8) -> bool {
+    return x != 0 && x & (x - 1) == 0;
+}
+```
+
+The `&&` expression is logical, rather than bit, AND. 
+
+#### Setting only the rightmost bit
+
+
+If you have a word `x`, you might want to have only the right-most bit in `x`. Assuming `x` is not zero, this expression `y = x & -x` will set `y` to the word that consists of the right-most bit in `x` and only the right-most bit.
+
+![Getting only rightmost](figs/rightmost/only-rightmost.png)
+
+
+If `x` is zero, `y` is zero as well.
 
 ```
 x      = 00101100
@@ -1008,11 +1064,11 @@ fn get_rightmost(x: i8) {
 }
 ```
 
-
-#### Is a number a power of two?
-
-If `x` is a power of two, it can have at most one bit set. (Zero is a power of two, and then `x` has zero bits set, but otherwise $x=2^i$ means that `x` only has bit `i` set).
-
+```rust
+fn twopow(x: u8) -> bool {
+    return x != 0 && x == (x & -(x as i8) as u8);
+}
+```
 
 
 **FIXME: more below***
