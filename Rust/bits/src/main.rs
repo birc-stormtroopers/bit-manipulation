@@ -156,20 +156,20 @@ fn mask(low: u8, high: u8) -> u8 {
     mask
 }
 
-fn pack_dna(x: u8, y: u8, z: u8, w: u8) -> u32 {
-    let res = x as u32;
-    let res = (res << 2) | y as u32;
-    let res = (res << 2) | z as u32;
-    let res = (res << 2) | w as u32;
+fn pack_dna(x: u8, y: u8, z: u8, w: u8) -> u8 {
+    let res = x as u8;
+    let res = (res << 2) | y;
+    let res = (res << 2) | z;
+    let res = (res << 2) | w;
     res
 }
 
-fn unpack_dna(dna: u32) -> (u8, u8, u8, u8) {
+fn unpack_dna(dna: u8) -> (u8, u8, u8, u8) {
     let mask = (1 << 2) - 1; // 0x03
-    let w = ((dna >> 0) & mask) as u8;
-    let z = ((dna >> 2) & mask) as u8;
-    let y = ((dna >> 4) & mask) as u8;
-    let x = ((dna >> 6) & mask) as u8;
+    let w = (dna >> 0) & mask;
+    let z = (dna >> 2) & mask;
+    let y = (dna >> 4) & mask;
+    let x = (dna >> 6) & mask;
     (x, y, z, w)
 }
 

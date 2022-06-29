@@ -952,20 +952,20 @@ The latter is something you sometimes use to set specific bits in a word while l
 You can use masks to pack data into smaller words that your hardware readily gives you access to. For example, no hardware I am aware lets me address in units smaller than a byte (8-bit words), but since there are only four different nucleotides in DNA (and ignoring that we have to represent uncertainty and such), I should be able to represent each nucleotide in two bits. Well, I can. I can, for example, pack four two-bit words into one eight-bit word and get the packed data out again:
 
 ```rust
-fn pack_dna(x: u8, y: u8, z: u8, w: u8) -> u32 {
-    let res = x as u32;
-    let res = (res << 2) | y as u32;
-    let res = (res << 2) | z as u32;
-    let res = (res << 2) | w as u32;
+fn pack_dna(x: u8, y: u8, z: u8, w: u8) -> u8 {
+    let res = x as u8;
+    let res = (res << 2) | y;
+    let res = (res << 2) | z;
+    let res = (res << 2) | w;
     res
 }
 
-fn unpack_dna(dna: u32) -> (u8, u8, u8, u8) {
+fn unpack_dna(dna: u8) -> (u8, u8, u8, u8) {
     let mask = (1 << 2) - 1; // 0x03
-    let w = ((dna >> 0) & mask) as u8;
-    let z = ((dna >> 2) & mask) as u8;
-    let y = ((dna >> 4) & mask) as u8;
-    let x = ((dna >> 6) & mask) as u8;
+    let w = (dna >> 0) & mask;
+    let z = (dna >> 2) & mask;
+    let y = (dna >> 4) & mask;
+    let x = (dna >> 6) & mask;
     (x, y, z, w)
 }
 ```
