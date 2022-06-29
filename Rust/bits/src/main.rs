@@ -129,6 +129,22 @@ fn get_zero_one(x: u8, i: u8) -> u8 {
     (x >> i) & 1
 }
 
+fn set_bit(x: u8, i: u8) -> u8 {
+    println!("x            = {:08b}", x);
+    println!("1 << {}       = {:08b}", i, 1 << i);
+    println!("x | (1 << {}) = {:08b}", i, x | (1 << i));
+    println!("");
+    x | (1 << i)
+}
+
+fn clear_bit(x: u8, i: u8) -> u8 {
+    println!("x             = {:08b}", x);
+    println!("!(1 << {})     = {:08b}", i, !(1 << i) as u8);
+    println!("x & !(1 << {}) = {:08b}", i, x & !(1 << i));
+    println!("");
+    x & !(1 << i)
+}
+
 fn log2(x: u8) -> Option<(u8, u8)> {
     if x == 0 {
         return None;
@@ -179,6 +195,16 @@ fn main() {
         get_zero_one(128 - 3, 2),
         get_zero_one(128 - 3, 3)
     );
+
+    set_bit(128 - 3, 0);
+    set_bit(128 - 3, 1);
+    set_bit(128 - 3, 2);
+    set_bit(128 - 3, 3);
+
+    clear_bit(128 - 3, 0);
+    clear_bit(128 - 3, 1);
+    clear_bit(128 - 3, 2);
+    clear_bit(128 - 3, 3);
 
     log2_test();
 }

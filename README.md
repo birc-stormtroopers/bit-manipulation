@@ -806,6 +806,65 @@ fn get_zero_one(x: u8, i: u8) -> u8 {
 
 If your language represents true and false as zero and one (when working with bools and not some truthiness) casting a boolean value to an integer would also give you zero or one, so `get_zero_one(x, i)` will give you the same as `get_bool(x, i) as u8`.
 
+Now let's say you have a word `x` and you want to set the i'th bit to one, that is, you want a new word `y` where `y[i] = 1` and `y[j] = x[j]` everywhere else.
+
+To do that, shift a one-bit up to position `i` with `1 << i` and then OR it with `x`.
+
+```
+x            = 01111101
+1 << 0       = 00000001
+x | (1 << 0) = 01111101
+
+x            = 01111101
+1 << 1       = 00000010
+x | (1 << 1) = 01111111
+
+x            = 01111101
+1 << 2       = 00000100
+x | (1 << 2) = 01111101
+
+x            = 01111101
+1 << 3       = 00001000
+x | (1 << 3) = 01111101
+```
+
+In Rust:
+
+```rust
+fn set_bit(x: u8, i: u8) -> u8 {
+    x | (1 << i)
+}
+```
+
+If you instead want to clear the bit, so `y[i] = 0` and `y[j] = x[j]` everywhere else, you can shift a one up to position `i` with `1 << i` once more, but now flip all the bits to get ones everywhere *except* position `i`: `!(1 << i)`. If you AND this with `x`, position `i` is set to zero, because whatever `x[i]` is we are AND'ing with zero, and all the other bits remaint he same, because we AND `x[j]` with 1.
+
+```
+x             = 01111101
+!(1 << 0)     = 11111110
+x & !(1 << 0) = 01111100
+
+x             = 01111101
+!(1 << 1)     = 11111101
+x & !(1 << 1) = 01111101
+
+x             = 01111101
+!(1 << 2)     = 11111011
+x & !(1 << 2) = 01111001
+
+x             = 01111101
+!(1 << 3)     = 11110111
+x & !(1 << 3) = 01110101
+```
+
+In Rust, for eight-bit words:
+
+```rust
+fn clear_bit(x: u8, i: u8) -> u8 {
+    x & !(1 << i)
+}
+```
+
+
 ### Bit-masks
 
 **FIXME**
