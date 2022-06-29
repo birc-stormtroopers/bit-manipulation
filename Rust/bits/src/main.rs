@@ -129,6 +129,35 @@ fn get_zero_one(x: u8, i: u8) -> u8 {
     (x >> i) & 1
 }
 
+fn log2(x: u8) -> Option<(u8, u8)> {
+    if x == 0 {
+        return None;
+    }
+
+    let lz = x.leading_zeros() as u8;
+    let rem = (x & (x - 1)) != 0;
+    let round_down = 8 - 1 - lz;
+    let round_up = round_down + (rem as u8);
+
+    Some((round_down, round_up))
+}
+
+fn log2_test() {
+    println!("");
+    println!("Testing log calculations");
+    for i in 0..10 {
+        match log2(i) {
+            None => {
+                println!("Undefined");
+            }
+            Some((n, m)) => {
+                println!("{} -> {},{}", i, n, m);
+            }
+        }
+    }
+    println!("");
+}
+
 fn main() {
     basic_operations();
     unsigned_arithmethic();
@@ -150,4 +179,6 @@ fn main() {
         get_zero_one(128 - 3, 2),
         get_zero_one(128 - 3, 3)
     );
+
+    log2_test();
 }
