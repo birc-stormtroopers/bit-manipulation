@@ -1020,14 +1020,13 @@ such that $2^i = 0$), `x & (x - 1)` is `0 & -1 == 0`, so the expression gives us
 
 ```rust
 fn twopow(x: u8) -> bool {
-    return x != 0 && x & (x - 1) == 0;
+    x != 0 && x & (x - 1) == 0
 }
 ```
 
 The `&&` expression is logical, rather than bit, AND. 
 
 #### Setting only the rightmost bit
-
 
 If you have a word `x`, you might want to have only the right-most bit in `x`. Assuming `x` is not zero, this expression `y = x & -x` will set `y` to the word that consists of the right-most bit in `x` and only the right-most bit.
 
@@ -1064,9 +1063,11 @@ fn get_rightmost(x: i8) {
 }
 ```
 
+If you extract the rightmost bit of a word, and the word is a power of two, then you get the same word back. So you can also use this trick to check if a word is a power of two. Again there is a special case for zero, though, since `0 & -0 == 0` but `0` isn't a power of two, so again you need to explicitly exclude zero:
+
 ```rust
-fn twopow(x: u8) -> bool {
-    return x != 0 && x == (x & -(x as i8) as u8);
+fn twopow(x: 18) -> bool {
+    x != 0 && x == (x & -x)
 }
 ```
 
@@ -1075,8 +1076,29 @@ fn twopow(x: u8) -> bool {
 
 
 
+### Leftmost set bit
 
 
+#### Base two logarithms
+
+```rust
+fn log2(x: u8) -> Option<(u8, u8)> {
+    if x == 0 {
+        return None;
+    }
+
+    let w = u8::BITS as u8; // word size in u8 (it's just 8).
+    let lz = x.leading_zeros() as u8;
+    let rem = ((x & (x - 1)) != 0) as u8;
+
+    let round_down = w - 1 - lz;
+    let round_up = round_down + rem;
+
+    Some((round_down, round_up))
+}
+```
+
+If you recall from above `(x & (x - 1))` is zero if and only if `x` is a power of two when `x > 0` (and where we use it, we know `x != 0`). That means `(x & (x - 1)) != 0` is true if and only if `x` is not a power of two, so the logarithm should be one higher if rounded up. If we cast this boolean to an integer, it becomes zero or one, depending on the test, so if we add it to the rounded-down logarithm we add zero when we have a power of two and shouldn't round up, and we add one when we should round up.
 
 
 

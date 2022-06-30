@@ -196,10 +196,11 @@ fn log2(x: u8) -> Option<(u8, u8)> {
         return None;
     }
 
+    let w = u8::BITS as u8; // word size in u8
     let lz = x.leading_zeros() as u8;
-    let rem = (x & (x - 1)) != 0;
-    let round_down = 8 - 1 - lz;
-    let round_up = round_down + (rem as u8);
+    let rem = ((x & (x - 1)) != 0) as u8;
+    let round_down = w - 1 - lz;
+    let round_up = round_down + rem;
 
     Some((round_down, round_up))
 }
