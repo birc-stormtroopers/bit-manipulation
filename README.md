@@ -1083,7 +1083,7 @@ Although we can translate a number into one that only has its rightmost bit set 
   x & -x = 00000100 = 4
 ```
 
-but 4 is not the position of the rightmost bit (that would be 3). Since `x & -x` is a power of two, the position of the rightmost bit of `x` is $\log_2(x\ \& -x)$, but computing the log of a number is not necessarily fast. There are CPUs with fast log-2 operations, but it is not common, and in most languages, if you want to compute logarithms you have to go through floating point numbers, and there would be several instructions involved.
+but 4 is not the position of the rightmost bit (that would be 3). Since `x & -x` is a power of two, the position of the rightmost bit of `x` is $\log_2(x\ \mathrm{AND} -x)$, but computing the log of a number is not necessarily fast. There are CPUs with fast log-2 operations, but it is not common, and in most languages, if you want to compute logarithms you have to go through floating point numbers, and there would be several instructions involved.
 
 There isn't a simple bit trick to get the index of the rightmost bit, but it is such a common thing to want that [most hardware have fast instructions for getting the first (rightmost) or last (leftmost) bit anyway](https://en.wikipedia.org/wiki/Find_first_set).
 
