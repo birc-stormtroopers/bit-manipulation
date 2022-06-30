@@ -691,8 +691,11 @@ where the remaining bits all have a magnitude that is a factor of two higher, i.
 If the new left-most bit is zero, on the other hand, we have
 
 $$-2^{w-1} + (b_{w-2} - 1)\cdot 2^{w-1} + \sum_{i=1}^{w-2} b_{i-1}\cdot 2^i + 0\cdot 2^0
-= -2^{w-1} - 2^{w-1} + \sum_{i=1}^{w-2} b_{i-1}\cdot 2^i + 0\cdot 2^0
-= -2^{w} + \sum_{i=1}^{w-2} b_{i-1}\cdot 2^i + 0\cdot 2^0$$
+= -2^{w-1} - 2^{w-1} + \sum_{i=1}^{w-2} b_{i-1}\cdot 2^i + 0\cdot 2^0$$
+
+which, since $-2^{w-1} - 2^{w-1} = 2\times\left(-2^{w-1}\right) = -2^w$, is
+
+$$-2^{w} + \sum_{i=1}^{w-2} b_{i-1}\cdot 2^i + 0\cdot 2^0$$
 
 where we can't represent $-2^{w}$ in a
 $w$-bit word, so it is dropped, leaving
