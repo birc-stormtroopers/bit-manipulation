@@ -1071,6 +1071,52 @@ fn twopow(x: 18) -> bool {
 }
 ```
 
+#### Getting the position of the rightmost set bit
+
+Although we can translate a number into one that only has its rightmost bit set using `x & -x`, it doesn't tell us *which* bit we have left set. By that I mean that we don't know the bit position of the one set bit. If `x = 12`, for example, `x & -x = 4`
+
+```
+  x = 12 = 00001100
+  x & -x = 00000100 = 4
+```
+
+but 4 is not the position of the rightmost bit (that would be 3). Since `x & -x` is a power of two, the position of the rightmost bit of `x` is $\log_2(x\ \&\ -x)$, but computing the log of a number is not necessarily fast. There are CPUs with fast log-2 operations, but it is not common, and in most languages, if you want to compute logarithms you have to go through floating point numbers, and there would be several instructions involved.
+
+There isn't a simple bit trick to get the index of the rightmost bit, but it is such a common thing to want that [most hardware have fast instructions for getting the first (rightmost) or last (leftmost) bit anyway](https://en.wikipedia.org/wiki/Find_first_set).
+
+They are far from consistent in how they work, and language support is sporatic at best, and sometimes rely on compiler extensions, but this is getting better, and even in older langauges you can always get something that will get the job done.
+
+In Rust, we can use the instruction `trailing_zeros()`:
+
+```rust
+    for i in 0i8..10i8 {
+        println!(
+            "Trailing zeros in {} [{:08b}]: {}",
+            i,
+            i,
+            i.trailing_zeros()
+        );
+    }
+```
+
+```
+Trailing zeros in 0 [00000000]: 8
+Trailing zeros in 1 [00000001]: 0
+Trailing zeros in 2 [00000010]: 1
+Trailing zeros in 3 [00000011]: 0
+Trailing zeros in 4 [00000100]: 2
+Trailing zeros in 5 [00000101]: 0
+Trailing zeros in 6 [00000110]: 1
+Trailing zeros in 7 [00000111]: 0
+Trailing zeros in 8 [00001000]: 3
+Trailing zeros in 9 [00001001]: 0
+```
+
+Notice, however, that with 0, where we don't *have* a rightmost bit set, we get the full width of the word. That is technically correct, there are 8 trailing zeros in an eight-bit zero, they are just trailing the beginning of the word rather than a set bit. It sometimes comes as a surprise, though, so keep in mind that a zero can be surprising in operations that involve anything with set bits. Different architectures and different languages might also treat zero differently.
+
+
+
+
 
 **FIXME: more below***
 

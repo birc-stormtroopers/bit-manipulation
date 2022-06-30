@@ -263,11 +263,20 @@ fn main() {
     let (x, y, z, w) = unpack_dna(dna);
     println!("{} {} {} {}", x, y, z, w);
 
-    log2_test();
-
     for i in 0..8 {
         println!("popcount({}) = {}", i, popcount(i));
         println!("twopow({}) = {}", i, twopow(i));
         println!("twopow2({}) = {}", i, twopow2(i));
+    }
+
+    log2_test();
+
+    for i in 0i8..10i8 {
+        println!(
+            "Trailing zeros in {} [{:08b}]: {}",
+            i,
+            i,
+            i.trailing_zeros()
+        );
     }
 }
