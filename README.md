@@ -1156,7 +1156,52 @@ If you go this route, you have to treat zero as a special case. Or make sure tha
 
 There is another approach, though, that requires a little more code, but isn't necessarily slower in practise. The code above needs to get the leading zeros from one hardware instruction and then put it in the instruction for another, but we can use slightly faster instructions where the shift amount is hardwared, where we just need a few more of them, and it won't be much slower, if slower at all.
 
+```rust
+fn leftmost8(x: u8) -> u8 {
+    let mut x = x;
+    x |= x >> 1;
+    x |= x >> 2;
+    x |= x >> 4;
+    x ^ (x >> 1)
+}
 
+fn leftmost16(x: u16) -> u16 {
+    let mut x = x;
+    x |= x >> 1;
+    x |= x >> 2;
+    x |= x >> 4;
+    x |= x >> 8;
+    x ^ (x >> 1)
+}
+
+fn leftmost32(x: u32) -> u32 {
+    let mut x = x;
+    x |= x >> 1;
+    x |= x >> 2;
+    x |= x >> 4;
+    x |= x >> 8;
+    x |= x >> 16;
+    x ^ (x >> 1)
+}
+
+use core::ops::*;
+
+fn leftmost<W>(x: W) -> W
+where
+    W: Shr<u8, Output = W> + BitOr<Output = W> + BitOrAssign + BitXor<Output = W> + Copy,
+{
+    let w = (std::mem::size_of_val(&x) * u8::BITS as usize) as u8;
+    let mut x = x;
+    let mut shift = 1u8;
+    while shift < w {
+        x |= x >> shift;
+        shift *= 2;
+    }
+    x ^ (x >> 1)
+}
+```
+
+Although there is a loop in the source code, which would in normal circumstances means the compiled code would have a loop as well, we are here looping a constant number of times, the constant is known at compiler time, and so [the compiler can unroll the loop](https://godbolt.org/z/6n78qTh4q) to produce the same kind of code as if we wrote the instructions using copy and paste.
 
 
 

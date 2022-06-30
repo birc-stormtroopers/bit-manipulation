@@ -259,13 +259,13 @@ fn leftmost<W>(x: W) -> W
 where
     W: Shr<u8, Output = W> + BitOr<Output = W> + BitOrAssign + BitXor<Output = W> + Copy,
 {
+    let w = (std::mem::size_of_val(&x) * u8::BITS as usize) as u8;
     let mut x = x;
-    x |= x >> 1;
-    x |= x >> 2;
-    x |= x >> 4;
-    x |= x >> 8;
-    x |= x >> 16;
-    x |= x >> 32;
+    let mut shift = 1u8;
+    while shift < w {
+        x |= x >> shift;
+        shift *= 2;
+    }
     x ^ (x >> 1)
 }
 
