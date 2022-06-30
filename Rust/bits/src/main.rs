@@ -1,3 +1,5 @@
+use num_traits;
+
 fn basic_operations() {
     let x: u16 = 0xf4e2; // [f: 1111, 4: 0010, e: 1110, 2: 0010]
     println!("Unsigned:");
@@ -191,34 +193,80 @@ fn twopow2(x: u8) -> bool {
     return x != 0 && x == (x & -(x as i8) as u8);
 }
 
-fn log2(x: u8) -> Option<(u8, u8)> {
-    if x == 0 {
-        return None;
+// Get the size for a value of a generic type
+fn ws<T>(_x: T) -> u32 {
+    (std::mem::size_of::<T>() * u8::BITS as usize) as u32
+}
+
+fn log2_down<W>(x: W) -> Option<u32>
+where
+    W: num_traits::PrimInt,
+{
+    if x > W::zero() {
+        Some(ws(x) - 1 - x.leading_zeros())
+    } else {
+        None
     }
+}
 
-    let w = u8::BITS as u8; // word size in u8
-    let lz = x.leading_zeros() as u8;
-    let rem = ((x & (x - 1)) != 0) as u8;
-    let round_down = w - 1 - lz;
-    let round_up = round_down + rem;
-
-    Some((round_down, round_up))
+fn log2_up<W>(x: W) -> Option<u32>
+where
+    W: num_traits::PrimInt,
+{
+    let i = log2_down(x)?;
+    Some(i + (i != x.trailing_zeros()) as u32)
 }
 
 fn log2_test() {
     println!("");
     println!("Testing log calculations");
     for i in 0..10 {
-        match log2(i) {
-            None => {
-                println!("Undefined");
-            }
-            Some((n, m)) => {
-                println!("{} -> {},{}", i, n, m);
-            }
-        }
+        println!("{} -> {:?}, {:?}", i, log2_down(i), log2_up(i));
     }
     println!("");
+}
+
+fn leftmost8(x: u8) -> u8 {
+    let mut x = x;
+    x |= x >> 1;
+    x |= x >> 2;
+    x |= x >> 4;
+    x ^ (x >> 1)
+}
+
+fn leftmost16(x: u16) -> u16 {
+    let mut x = x;
+    x |= x >> 1;
+    x |= x >> 2;
+    x |= x >> 4;
+    x |= x >> 8;
+    x ^ (x >> 1)
+}
+
+fn leftmost32(x: u32) -> u32 {
+    let mut x = x;
+    x |= x >> 1;
+    x |= x >> 2;
+    x |= x >> 4;
+    x |= x >> 8;
+    x |= x >> 16;
+    x ^ (x >> 1)
+}
+
+use core::ops::*;
+
+fn leftmost<W>(x: W) -> W
+where
+    W: Shr<u8, Output = W> + BitOr<Output = W> + BitOrAssign + BitXor<Output = W> + Copy,
+{
+    let mut x = x;
+    x |= x >> 1;
+    x |= x >> 2;
+    x |= x >> 4;
+    x |= x >> 8;
+    x |= x >> 16;
+    x |= x >> 32;
+    x ^ (x >> 1)
 }
 
 fn main() {
@@ -269,8 +317,6 @@ fn main() {
         println!("twopow2({}) = {}", i, twopow2(i));
     }
 
-    log2_test();
-
     for i in 0i8..10i8 {
         println!(
             "Trailing zeros in {} [{:08b}]: {}",
@@ -278,5 +324,11 @@ fn main() {
             i,
             i.trailing_zeros()
         );
+    }
+
+    log2_test();
+
+    for i in 0..10 {
+        println!("leftmost of {:08b} is {:08b}", i, leftmost(i));
     }
 }

@@ -1083,7 +1083,7 @@ Although we can translate a number into one that only has its rightmost bit set 
   x & -x = 00000100 = 4
 ```
 
-but 4 is not the position of the rightmost bit (that would be 3). Since `x & -x` is a power of two, the position of the rightmost bit of `x` is $\log_2$(x & -x), but computing the log of a number is not necessarily fast. There are CPUs with fast log-2 operations, but it is not common, and in most languages, if you want to compute logarithms you have to go through floating point numbers, and there would be several instructions involved.
+but 4 is not the position of the rightmost bit (that would be 3). Since `x & -x` is a power of two, the position of the rightmost bit of `x` is $\log_2$(x & -x), but computing the log of a number is not necessarily fast. There are CPUs with fast log-2 operations, but it is not common, and in most languages, if you want to compute logarithms you have to go through floating point numbers, and there would be several instructions involved. Rust does have a `log2` method in its unstable nightly build so `(x&-x).log2()` would work there (with a little caution; it will panic on zero). But there are also other options.
 
 There isn't a simple bit trick to get the index of the rightmost bit, but it is such a common thing to want that [most hardware have fast instructions for getting the first (rightmost) or last (leftmost) bit anyway](https://en.wikipedia.org/wiki/Find_first_set).
 
@@ -1117,6 +1117,8 @@ Trailing zeros in 9 [00001001]: 0
 
 Notice, however, that with 0, where we don't *have* a rightmost bit set, we get the full width of the word. That is technically correct, there are 8 trailing zeros in an eight-bit zero, they are just trailing the beginning of the word rather than a set bit. It sometimes comes as a surprise, though, so keep in mind that a zero can be surprising in operations that involve anything with set bits. Different architectures and different languages might also treat zero differently.
 
+The `trailing_zeros()` method returns a 32-bit integer (`u32`) and you might have to cast it to use it in further computations.
+
 
 
 
@@ -1127,35 +1129,73 @@ Notice, however, that with 0, where we don't *have* a rightmost bit set, we get 
 
 ### Leftmost set bit
 
+Now let's turn our focus to the leftmost set bit. It is the most significant bit set and most informative of the magnitude of the word we are looking at, but it is also a little harder to work with. The arithmetic tricks we can use with plus and minus affects words from the right, but we don't have similar operations from the left. While it is easy to get just the rightmost set bit (`x & -x`), there is nothing similar to get just the leftmost bit set.
+
+Of course, that gives us an excuse to do a little hacking...
+
+#### Only the leftmost set bit
+
+First of all, there might be a very easy solution to getting the leftmost set bit. Just as there are instructions for getting the rightmost set bit--we used one earlier--there might also be for the leftmost set bit. In Rust, that instruction is `x.leading_zeros()`. It counts the number of leading zeros, which isn't quite the index of the leftmost set bit, but the latter is easy to get from the former, and if the word we are working on is not zero, it is a quick way to get the word that only has the highest set bit.
+
+If you have a word of length `w` and it starts with `lz` zeros, then `(w - 1) - lz` is the position of the leftmost set bit. We need the minus one because we index from zero, so the leftmost bit (set or not) is at index `w - 1`, and then we just count down from there.
+
+If we know which position to set the one-bit, we can just shift left to put it there:
+
+```rust
+fn leftmost(x: u8) -> u8 {
+    // Does NOT work with x == 0!
+    1 << ((u8::BITS - 1) - x.leading_zeros())
+}
+```
+
+This will fail if our word is zero, since then there are `w` leading zeros, and `(w - 1) - lz = -1`.
+
+I don't know any computer nor language that will let you shift a negative number of bits, and attempting it will usually result in some sort of overflow (which, if you are lucky, will crash the program, and if you are unlucky will do something worse).
+
+If you go this route, you have to treat zero as a special case. Or make sure that the input is never going to be zero.
+
+There is another approach, though, that requires a little more code, but isn't necessarily slower in practise. The code above needs to get the leading zeros from one hardware instruction and then put it in the instruction for another, but we can use slightly faster instructions where the shift amount is hardwared, where we just need a few more of them, and it won't be much slower, if slower at all.
+
+
+
+
 
 #### Base two logarithms
 
 ```rust
-fn log2(x: u8) -> Option<(u8, u8)> {
-    if x == 0 {
-        return None;
+// Get the size for a value of a generic type
+fn ws<T>(_x: T) -> u32 {
+    (std::mem::size_of::<T>() * u8::BITS as usize) as u32
+}
+
+fn log2_down<W>(x: W) -> Option<u32>
+where
+    W: num_traits::PrimInt,
+{
+    if x > W::zero() {
+        Some(ws(x) - 1 - x.leading_zeros())
+    } else {
+        None
     }
+}
 
-    let w = u8::BITS as u8; // word size in u8 (it's just 8).
-    let lz = x.leading_zeros() as u8;
-    let rem = ((x & (x - 1)) != 0) as u8;
-
-    let round_down = w - 1 - lz;
-    let round_up = round_down + rem;
-
-    Some((round_down, round_up))
+fn log2_up<W>(x: W) -> Option<u32>
+where
+    W: num_traits::PrimInt,
+{
+    let i = log2_down(x)?;
+    // If i isn't the rightmost set bit, x is not a power of two, and then
+    // we need to add one to the result. We can check i != x.trailing_zeros()
+    // to get a boolean and cast it to u32 to get 0 or 1 to add.
+    Some(i + (i != x.trailing_zeros()) as u32)
 }
 ```
 
-If you recall from above `(x & (x - 1))` is zero if and only if `x` is a power of two when `x > 0` (and where we use it, we know `x != 0`). That means `(x & (x - 1)) != 0` is true if and only if `x` is not a power of two, so the logarithm should be one higher if rounded up. If we cast this boolean to an integer, it becomes zero or one, depending on the test, so if we add it to the rounded-down logarithm we add zero when we have a power of two and shouldn't round up, and we add one when we should round up.
 
 
+### Pop-count
 
-
-
-
-
-
+**FIXME**
 
 
 [^1]: There might be flags set in a register to tell you if any set bits were shifted out, but unless you are writing machine code, you do not have access to this, so from a high-level programming perspective the bits are lost.
