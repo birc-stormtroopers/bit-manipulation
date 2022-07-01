@@ -1196,6 +1196,68 @@ It works the same way, except that we keep the bits on the left, just because th
  b | !b = 1  (b ^ !b = 1)
 ```
 
+If you can get the trailing zeros, you can do something pretty cool with the resulting pattern: you can use it to remove the rightmost string of contiguous ones.
+
+```
+  x           = 01011100
+                   ^^^ -- righmost string of ones
+```
+
+Call the pattern of trailing zeros `y` (it doesn't matter which expression you use to compute it).
+
+```
+  x           = 01011100
+  y           = 00000011
+```
+
+If you OR `x` and `y`, you get one long contiguous sequence of ones, from bit zero up to and including the leftmost bit in the rightmost string of ones.
+
+```
+  x           = 01011100
+  y           = 00000011
+  x | y       = 01011111
+                   ^^^^^
+```
+
+If you add one to this, the bit will carry up through the sequence of ones and land just to the left of the first bit in the string
+
+```
+  x           = 01011100
+  y           = 00000011
+  x | y       = 01011111
+  (x | y) + 1 = 01100000
+```
+
+You can potentially get an overflow here, if the rightmost string of ones goes all the way to the left of `x`, but in that case `x | y = -1` (`x | y` will be all ones), and adding one sets all the bits to zero, and that is fine.
+
+Let's call this word `z`, `z = (x | y) + 1`.
+
+Now, `z` isn't exactly what we want, since it contains the carry bit from the addition. To the left of this carry bit, the word has the same bits as `x`, to the right it is all zeros, and at the carry bit, `x` must be zero (or the addition would have carried on a bit longer). So, to summarise, if the carry bit landed at position `i`, then `x[j] = z[j] > i`, `x[i] == 0` and `z[i] == 1`, and `z[j] == 0` for `j < i`, and `i+1` is the position where the rightmost string of ones starts in `x`.
+
+And `x` and `z`, then
+
+```
+    x[j] & z[j] = x[j] & x[j] = x[j]   for j > i
+    x[i] & z[i] = x[i] & 1    = x[i]
+    x[j] & z[j] = x[j] & 0    = 0      for j < i
+```
+
+so we have set the rightmost string of ones to zero.
+
+```
+  x     = 01011100
+  z     = 01100000
+  x & z = 01000000
+             ^^^ -- rightmost string of ones removed
+```
+
+The expression, using e.g. `!(x | -x)` to get `y`, is
+
+```
+    ((x | !(x | -x)) + 1) & x
+```
+
+Ok, maybe not the most readable piece of code, and you probably want to write a comment or two if you use it anywhere...
 
 
 #### Getting the position of the rightmost set bit
