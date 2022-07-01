@@ -1074,7 +1074,7 @@ fn twopow(x: 18) -> bool {
 }
 ```
 
-#### Isolationg the rightmost zero
+#### Isolating the rightmost zero
 
 The expressoin `x & -x` isolates the rightmost one-bit for `x != 0`, i.e., gives us the pattern where only the rightmost one-bit in `x` is set. Could we do something similar for the rightmost zero?
 
