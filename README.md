@@ -1074,6 +1074,130 @@ fn twopow(x: 18) -> bool {
 }
 ```
 
+#### Isolationg the rightmost zero
+
+The expressoin `x & -x` isolates the rightmost one-bit for `x != 0`, i.e., gives us the pattern where only the rightmost one-bit in `x` is set. Could we do something similar for the rightmost zero?
+
+Yes, the expression `!x & (x + 1)` will, for `x != 0`, give us a pattern with a single set bit, and the bit is at the position of the rightmost zero-bit in `x`:
+
+```
+ x   = 11010101
+ !x  = 00101010
+
+ x   = 11010101
+ x+1 = 11010110
+
+ !x         = 00101010
+ x+1        = 11010110
+ !x & (x+1) = 00000010
+```
+
+There isn't anything tricky to see how it works. The rightmost zero-bit in `x` must be the rightmost one-bit in `!x` since `!x` is just the inverted bits. We know how to get the rightmost one-bit (`x & -x`) and we just need to do that for `!x` now: `!x & -(!x)`. But the rule for changing sign, `-x = !x + 1` applies here as well, so `-(!x) = !!x + 1` and flipping all the bits twice gives us the original word back, `!!x = x`.
+
+So, isolating the rightmost zero-bit in `x` amounts to isolationg the rightmost one-bit in `!x` which is `!x & -!x = !x & (x + 1)`.
+
+#### Getting trailing zeros
+
+If you have a word `x`, isolating the trailing zeros means getting a new word `y` where `y` is one at the positions of the trailing zeros in `x` and zero elsewhere. Here, the "trailing zeros" are the zeros from the rightmost one or all the bits if there is no rightmost bit.
+
+```
+ x = 11010100
+           ^^- trailing zeros
+
+ y = 00000011 <- isolated trailing zeros
+```
+
+There are multiple ways of getting `y`. One is to isolate the rightmost bit in `x` the way we already know how to do, and then subtract one, the way we make masks:
+
+```
+  x            = 11010100
+  x & -x       = 00000100 <- isolated rightmost
+  (x & -x) - 1 = 00000011 <- isolated trailing zeros
+```
+
+If `x` is zero, though, we have `0 - 1` which may give you an overflow, so it is best done on a signed integer. On a signed integer, `-1` is the pattern with all bits set, which is what we want.
+
+Another way to get the trailing zeros is using `!x & (x - 1)`.
+
+```
+  x            = 11010100
+ !x            = 00101011
+  x - 1        = 11010011
+ !x & (x - 1)  = 00000011
+```
+
+When we subtract one from `x`, all the trailing zeros are turned into ones, the rightmost bit is turned into a zero, and the remaining bits remain unchanged.
+
+![Flipping rightmost](figs/rightmost/flipping-rightmost.png)
+
+With a bit negation, of course, you flip all the bits.
+
+When you AND flipped and not-flipped bits, they will differ, and you will get a zero bit everywhere. When you AND a flipped and a flipped bit, you get the value of the flipped bit back. So, AND'ing `!x` and `x - 1` will set all the bits in to the left of the rightmost bit to zero, it will set the rightmost set bit to zero because that bit, flipped, is zero, and you will set all the trailing zeros to one, because the flipped trailing zeros are all ones.
+
+![Getting trailing rightmost with `!x & (x - 1)`](figs/rightmost/trailing-rightmost.png)
+
+This expression has the same issue with overflow: if `x` is zero, `x - 1 = -1`, which is an overflow for unsigned values. If `x` is signed, however, it is all ones, which `!x` will also be, so AND'ing them all will give you all ones, which is what we want.
+
+Yet another expression (and you can probably come up with more yourself) is `!(x | -x)`.
+
+Since `-x = !x + 1`, you get flipped bits to the left of the rightmost set bit, but adding one flips the negated bits back again for the trailing zeros and the rightmost set bit.
+
+```
+  x            = 11010100
+ -x = !x + 1   = 00101100
+```
+
+For the flipped bits, OR'ing will always give one (`b | !b = 1` for all bits), the rightmost bit in `x` will be one in both `x` and `-x`, so there the OR gives us 1, and the trailing zeros are zeros in both words. So, OR'ing `x | -x` gives us
+
+```
+  x     = 11010100
+ -x     = 00101100
+ x | -x = 11111100
+```
+
+which is the inverse of what we want. Negate the bits, and we are done: `!(x | -x)`.
+
+Once gain, there is an overflow, because `-x` is not meaingfully defined for unsigned values. For signed, it works just fine.
+
+Since subtracting one from a word flips all the bits from the rightmost 1 and to the right, we can use `x ^ (x - 1)` to obtain a related word: the word where we have the rightmost one *and* the trailing zeros.
+
+Here, we exploit that `b ^ b = 0` and `b ^ !b = 1` for all bits, so the flipped part of `x - 1`--everything from the rightmost set bit and to the right--will be one in the XOR, and everything we didn't flip will be zero.
+
+```
+  x     = 11010100
+  x - 1 = 11010011
+               ^^^-flipped
+
+  
+  x           = 11010100
+  x - 1       = 11010011
+  x ^ (x - 1) = 00000111
+                     ^^^ righmost bit + trailing
+```
+
+If you want to "right propagate" the righmost bit, setting the trailing zeros to ones but *not* setting the bits to the left of them to zero, you can use OR instead of XOR:
+
+```
+  x     = 11010100
+  x - 1 = 11010011
+               ^^^-flipped
+
+  
+  x           = 11010100
+  x - 1       = 11010011
+  x | (x - 1) = 11010111
+                     ^^^ righmost bit + trailing
+```
+
+It works the same way, except that we keep the bits on the left, just because the OR and XOR rules for a bit with itself differs, with OR always giving us the bit back and XOR giving us zero back.
+
+```
+ b | b  = b  (b ^ b  = 0)
+ b | !b = 1  (b ^ !b = 1)
+```
+
+
+
 #### Getting the position of the rightmost set bit
 
 Although we can translate a number into one that only has its rightmost bit set using `x & -x`, it doesn't tell us *which* bit we have left set. By that I mean that we don't know the bit position of the one set bit. If `x = 12`, for example, `x & -x = 4`
@@ -1123,7 +1247,10 @@ The `trailing_zeros()` method returns a 32-bit integer (`u32`) and you might hav
 
 
 
-**FIXME: more below***
+**FIXME: more below**
+
+
+
 
 
 
