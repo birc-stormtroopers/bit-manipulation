@@ -269,6 +269,33 @@ where
     x ^ (x >> 1)
 }
 
+// just because I am tired of the casting in expressions
+#[inline]
+fn neg(x: u8) -> u8 {
+    -(x as i8) as u8
+}
+
+fn next_set(x: u8) -> Option<u8> {
+    if x > 0 {
+        // x               xxx0 1110
+        // rightmost:      0000 0010 <- rightmost 1-bit
+        // carried:        xxx1 0000 <- removed 1-string and put carry
+        // ones:           0001 1110 <- 1-string + carry
+        // ones(shifted)   0000 0011 <- carry will add a bit, we remove another
+        // final           xxx1 0011 <- one bit went up, the others down
+        let rightmost = x & neg(x);
+        let carried = x.checked_add(rightmost)?; // None if overflow
+        let ones = x ^ carried;
+        let ones = ones >> (ones.trailing_zeros() + 2);
+        Some(carried | ones)
+    } else {
+        // if x is zero, the shift of ones will be too large (wordsize + 2),
+        // but we already know that there is only one number with zero bits set,
+        // so there isn't any next.
+        None
+    }
+}
+
 fn main() {
     basic_operations();
     unsigned_arithmethic();
@@ -331,4 +358,10 @@ fn main() {
     for i in 0..10 {
         println!("leftmost of {:08b} is {:08b}", i, leftmost(i));
     }
+
+    println!("{} [{:08b}] -> {:?}", 3, 3, next_set(3));
+    println!("{} [{:08b}] -> {:?}", 5, 5, next_set(5));
+    println!("{} [{:08b}] -> {:?}", 6, 6, next_set(6));
+    println!("{} [{:08b}] -> {:?}", 255, 255, next_set(255));
+    println!("{} [{:08b}] -> {:?}", 0, 0, next_set(0));
 }
