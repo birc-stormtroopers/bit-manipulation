@@ -1259,6 +1259,66 @@ The expression, using e.g. `!(x | -x)` to get `y`, is
 
 Ok, maybe not the most readable piece of code, and you probably want to write a comment or two if you use it anywhere...
 
+Admitted, manipulating bit patterns this way is not something you run into every day, but it does occationally have its uses.
+
+#### Next integer with the same number of bits
+
+Here is an example of an application where manipulating bit patterns come in handy. I have taken it from [Hacker's Delight](https://www.amazon.com/Hackers-Delight-2nd-Henry-Warren/dp/0321842685) and modified it slightly.
+
+Imagine you have some application where you work with various subsets of a constant number of elements. If you have $k$ elements in total, then you can encode any subset in a bit-pattern with
+$k$ bits: if bit
+$i$ is set, then that is interpreted as element
+$i$ is in the subset, and if
+$i$ is zero, then the element is not included.
+
+Such bit-set representations can be an efficient way of representing sets; it is the minimal space necessary to represent all sets (it there are $2^k$ possible subsets, so
+$k$ bits are necessary to identify all of them). You can manipulate the representation by flipping bits, thus adding or removing elements, and union, intersection, difference, etc. reduce to simple bit operation:
+
+```
+    a ∪ b == a | b
+    a ∩ b == a & b
+    a \ b == a & !b
+    ...
+```
+
+You can also easily iterate through all subsets, because if you run through the numbers from 0 (no bits set, so the empty set) to full set (all bits set, so $2^k-1$), each of the bit patterns of these numbers uniquely identify one subset.
+
+However, imagine now that you want to process sets in some order, where you need to iterate over all sets with the same size, e.g. first the empty set, then all singletons, then all sets of size two, and so on. This is slightly harder, because here you need to iterate over all bit-patterns with the same number of set bits, and getting from one bit-pattern to the next is not a simple arithmetic operation.
+
+With what we know so far, however, we can do it. The trick is still to think of the bit patterns as numbers, but to consider what the next number in a sequence $x, x+1, x+2, \ldots$ will have the same number of bits set.
+
+**FIXME**
+
+![Counting up to the next set of equal size.](figs/rightmost/next-set.png)
+
+![Getting the next set by manipulating bits.](figs/rightmost/next-set-general.png)
+
+
+
+```rust
+fn next_set(x: u8) -> Option<u8> {
+    if x > 0 {
+        // x               xxx0 1110
+        // rightmost:      0000 0010 <- rightmost 1-bit
+        // carried:        xxx1 0000 <- removed 1-string and put carry
+        // ones:           0001 1110 <- 1-string + carry
+        // ones(shifted)   0000 0011 <- carry will add a bit, we remove another
+        // final           xxx1 0011 <- one bit went up, the others down
+        let rightmost = x & neg(x);
+        let carried = x.checked_add(rightmost)?; // None if overflow
+        let ones = x ^ carried;
+        let ones = (ones >> 2) / rightmost; // move two bits below edge, then shift to edge
+        Some(carried | ones)
+    } else {
+        // if x is zero, the shift of ones will be too large (wordsize + 2),
+        // but we already know that there is only one number with zero bits set,
+        // so there isn't any next.
+        None
+    }
+}
+```
+
+
 
 #### Getting the position of the rightmost set bit
 
@@ -1312,6 +1372,31 @@ The `trailing_zeros()` method returns a 32-bit integer (`u32`) and you might hav
 **FIXME: more below**
 
 
+
+In the `next_set()` function earlier, we shifted a pattern by division. We knew it was a power of two, and the arithmetic woulds out to be the same result, but division can be slower. It depends a bit on whether the computer works out that you are dividing by a power of two. If you want to avoid division, you can use the `trailing_zeros()` function to shift instead:
+
+```rust
+fn next_set(x: u32) -> Option<u32> {
+    if x > 0 {
+        // x               xxx0 1110
+        // rightmost:      0000 0010 <- rightmost 1-bit
+        // carried:        xxx1 0000 <- removed 1-string and put carry
+        // ones:           0001 1110 <- 1-string + carry
+        // ones(shifted)   0000 0011 <- carry will add a bit, we remove another
+        // final           xxx1 0011 <- one bit went up, the others down
+        let rightmost = x & neg(x);
+        let carried = x.checked_add(rightmost)?; // None if overflow
+        let ones = x ^ carried;
+        let ones = ones >> (ones.trailing_zeros() + 2);
+        Some(carried | ones)
+    } else {
+        // if x is zero, the shift of ones will be too large (wordsize + 2),
+        // but we already know that there is only one number with zero bits set,
+        // so there isn't any next.
+        None
+    }
+}
+```
 
 
 
