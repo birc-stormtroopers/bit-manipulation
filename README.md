@@ -1287,13 +1287,46 @@ However, imagine now that you want to process sets in some order, where you need
 
 With what we know so far, however, we can do it. The trick is still to think of the bit patterns as numbers, but to consider what the next number in a sequence $x, x+1, x+2, \ldots$ will have the same number of bits set.
 
-**FIXME**
-
 ![Counting up to the next set of equal size.](figs/rightmost/next-set.png)
+
+When you count up like that, you will have the same or more bits set, until the leftmost-bit in the rightmost-1-string moves one step up. That's because you are filling in more bits to the right of the 1-string until you fill out the originally trailing zeros. Once you have filled all the trailing zeros with ones, the next addition will move a carry up through all the ones, and that will flip the bit to the left of the rightmost 1-string and leave the bitst to the right of it as trailing zeros.
+
+Then, you have to count until you have recovered the number of bits you started with, but the smallest number with that many bits is all ones to the right (all of them to the right means smallest, of course).
+
+These considerations leads us to the conclusion that to get the next number with the same number of bits set, we need to take the leftmost bit in the rightmost 1-string and move it one position to the left, and take the remaining bits in the 1-string and move them to the furthest right.
 
 ![Getting the next set by manipulating bits.](figs/rightmost/next-set-general.png)
 
+So how do we code this transformation?
 
+The first we will do is to move the leftmost bit in the 1-string to the left. To do this, we can get the rightmost set bit (`x & -x`) and then add that to `x`. When we add the rightmost bit to the 1-string, we will carry a bit all the way through the 1-string, flipping all of the bits to zero, and then leave a carry bit to the left of the original 1-string.
+
+![Adding rightmost.](figs/rightmost/add-rightmost.png)
+
+To set the bits at the low end of the word we will construct a mask of ones there. We start by building a mask that is at too high bits and then we move it down. The first mask we get from XOR'ing `x` and the `carried` word. Remember that with XOR, if we have the same bit in the two input words we will get a zero at that position, and if we have two different bits we will get a one. 
+
+![Ones mask](figs/rightmost/ones.png)
+
+By XOR'ing `x` and `carried` we get a mask, but it is two too wide for what we need (when we move one bit to the left we need one less for the mask on the right, so if we start with a rightmost 1-string of length $k$ we need to build a mask of
+$k-1$ bits on the right, but we have just build one of length
+$k+1$), and it is at the wrong location (it starts at `x`'s rightmost set bit, but we need it starting at zero).
+
+It isn't much of a problem to move it, though, we just need to shift it right by $i+2$
+where $i$ is the index of the rightmost bit in `x`.
+
+![Shifting ones](figs/rightmost/ones-shifting.png)
+
+Now, we don't have the index of the rightmost bit, so we cannot shift by `i` (but see below). Not to worry, though; we know that right shifting $i$ positions amounts to dividing by
+$2^i$, so shifting by
+$i$ or dividing by
+$2^i$ amounts to the same thing, and 
+$2^i$ is exactly the `rightmost` we computed before.
+
+The shifted `ones` gives us the mask we need for the low bits, and to get the next set in our application, we just need to combine `carried` and `ones` with an OR.
+
+![Completing next computation](figs/rightmost/next-set-finish.png)
+
+**FIXME: overflow**
 
 ```rust
 fn next_set(x: u8) -> Option<u8> {
@@ -1305,13 +1338,13 @@ fn next_set(x: u8) -> Option<u8> {
         // ones(shifted)   0000 0011 <- carry will add a bit, we remove another
         // final           xxx1 0011 <- one bit went up, the others down
         let rightmost = x & neg(x);
-        let carried = x.checked_add(rightmost)?; // None if overflow
+        let carried = x.checked_add(rightmost)?; // returns None if overflow
         let ones = x ^ carried;
         let ones = (ones >> 2) / rightmost; // move two bits below edge, then shift to edge
         Some(carried | ones)
     } else {
-        // if x is zero, the shift of ones will be too large (wordsize + 2),
-        // but we already know that there is only one number with zero bits set,
+        // if x is zero, rightmost is zero, and we can't divide by it.
+        // However, we already know that there is only one number with zero bits set,
         // so there isn't any next.
         None
     }
@@ -1385,9 +1418,9 @@ fn next_set(x: u32) -> Option<u32> {
         // ones(shifted)   0000 0011 <- carry will add a bit, we remove another
         // final           xxx1 0011 <- one bit went up, the others down
         let rightmost = x & neg(x);
-        let carried = x.checked_add(rightmost)?; // None if overflow
+        let carried = x.checked_add(rightmost)?; // returns None if overflow
         let ones = x ^ carried;
-        let ones = ones >> (ones.trailing_zeros() + 2);
+        let ones = ones >> (ones.trailing_zeros() + 2); // has to be logical shift!
         Some(carried | ones)
     } else {
         // if x is zero, the shift of ones will be too large (wordsize + 2),
