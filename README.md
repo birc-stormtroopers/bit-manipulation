@@ -1326,30 +1326,44 @@ The shifted `ones` gives us the mask we need for the low bits, and to get the ne
 
 ![Completing next computation](figs/rightmost/next-set-finish.png)
 
-**FIXME: overflow**
+There are a few cases where we need to be careful. If we start with zero, then rightmost will also be zero, and since we cannot divide by zero, that is a problem. The method doesn't work to get the next set from the empty set, but there isn't any such set anyway, so however we need to signal that there aren't any more sets, that is how we have to deal with zero.
+
+Another issue is when we add `rightmost` to `x`. If `x` has ones all the way to the left, adding `rightmost` to it gives us an overflow.
+
+```
+x:              1111 1100
+rightmost:  +   0000 0100
+            = 1 0000 0000
+              ^--- overflow bit
+```
+
+We don't have any meaningful way of creating the next integer with the same number of bits, unless we can extend the wordsize, so if this happens, we need to report that as well.
+
+The function below handles these two cases by using the `a.checked_add(b)` and `a.checked_div(b)` methods. The first will return `None` with an overflow or `Some(a+b)` if the addition is valid, and the second will return `None` if we divide by zero and `Some(a/b)` otherwise. We unpack the `Option<>` method with `?`, which returns immidiately upon `None` or otherwise gives us the value in `Some(...)`.
+
 
 ```rust
-fn next_set(x: u8) -> Option<u8> {
-    if x > 0 {
-        // x               xxx0 1110
-        // rightmost:      0000 0010 <- rightmost 1-bit
-        // carried:        xxx1 0000 <- removed 1-string and put carry
-        // ones:           0001 1110 <- 1-string + carry
-        // ones(shifted)   0000 0011 <- carry will add a bit, we remove another
-        // final           xxx1 0011 <- one bit went up, the others down
-        let rightmost = x & neg(x);
-        let carried = x.checked_add(rightmost)?; // returns None if overflow
-        let ones = x ^ carried;
-        let ones = (ones >> 2) / rightmost; // move two bits below edge, then shift to edge
-        Some(carried | ones)
-    } else {
-        // if x is zero, rightmost is zero, and we can't divide by it.
-        // However, we already know that there is only one number with zero bits set,
-        // so there isn't any next.
-        None
-    }
+// just because I am tired of the casting in expressions
+#[inline]
+fn neg(x: u32) -> u32 {
+    -(x as i32) as u32
+}
+
+fn next_set(x: u32) -> Option<u32> {
+    // x               xxx0 1110
+    // rightmost:      0000 0010 <- rightmost 1-bit
+    // carried:        xxx1 0000 <- removed 1-string and put carry
+    // x ^ carried:    0001 1110 <- 1-string + carry
+    // ones:           0000 0011 <- carry will add a bit, we remove another
+    // carried | ones  xxx1 0011 <- one bit went up, the others down
+    let rightmost = x & neg(x);
+    let carried = x.checked_add(rightmost)?; // None if overflow
+    let ones = (x ^ carried).checked_div(rightmost)? >> 2; // None if div by zero
+    Some(carried | ones)
 }
 ```
+
+Of course, we only get `None` on zero input or an overflow, but we might be out of sets before then. If you know how 
 
 
 
