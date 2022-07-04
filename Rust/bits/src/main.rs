@@ -283,8 +283,8 @@ fn next_set(x: u32) -> Option<u32> {
     // ones:           0000 0011 <- carry will add a bit, we remove another
     // carried | ones  xxx1 0011 <- one bit went up, the others down
     let rightmost = x & neg(x);
-    let carried = x.checked_add(rightmost)?; // None if overflow
-    let ones = (x ^ carried).checked_div(rightmost)? >> 2; // None if div by zero
+    let carried = x.checked_add(rightmost)?; // returns None if overflow
+    let ones = (x ^ carried).checked_shr(x.trailing_zeros() + 2)?;
     Some(carried | ones)
 }
 
@@ -354,6 +354,7 @@ fn main() {
     println!("{} [{:08b}] -> {:?}", 3, 3, next_set(3));
     println!("{} [{:08b}] -> {:?}", 5, 5, next_set(5));
     println!("{} [{:08b}] -> {:?}", 6, 6, next_set(6));
-    println!("{} [{:08b}] -> {:?}", 255, 255, next_set(255));
+    let ones = (-1i32) as u32;
+    println!("{} [{:08b}] -> {:?}", ones, ones, next_set(ones));
     println!("{} [{:08b}] -> {:?}", 0, 0, next_set(0));
 }

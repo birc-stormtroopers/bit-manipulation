@@ -1354,7 +1354,7 @@ fn next_set(x: u32) -> Option<u32> {
     // rightmost:      0000 0010 <- rightmost 1-bit
     // carried:        xxx1 0000 <- removed 1-string and put carry
     // x ^ carried:    0001 1110 <- 1-string + carry
-    // ones:           0000 0011 <- carry will add a bit, we remove another
+    // ones:           0000 0011 <- carry will add a bit, we remove that and another
     // carried | ones  xxx1 0011 <- one bit went up, the others down
     let rightmost = x & neg(x);
     let carried = x.checked_add(rightmost)?; // None if overflow
@@ -1363,7 +1363,9 @@ fn next_set(x: u32) -> Option<u32> {
 }
 ```
 
-Of course, we only get `None` on zero input or an overflow, but we might be out of sets before then. If you know how 
+The shift in `ones` has to be a logical shift. If the carry bit ends up in the leftmost position of of `x ^ carried`, an arithmetic shift will pull a one down from the left, and then the expression will not work.
+
+Of course, we only get `None` on zero input or an overflow, but we might be out of sets before then. If you know how many sets you have in total, just stop when `next_set()` returns a higher number.
 
 
 
@@ -1412,36 +1414,20 @@ Notice, however, that with 0, where we don't *have* a rightmost bit set, we get 
 
 The `trailing_zeros()` method returns a 32-bit integer (`u32`) and you might have to cast it to use it in further computations.
 
-
-
-
-
-**FIXME: more below**
-
-
-
-In the `next_set()` function earlier, we shifted a pattern by division. We knew it was a power of two, and the arithmetic woulds out to be the same result, but division can be slower. It depends a bit on whether the computer works out that you are dividing by a power of two. If you want to avoid division, you can use the `trailing_zeros()` function to shift instead:
+In the `next_set()` function earlier, we shifted a pattern by division. We knew it was a power of two, and the arithmetic woulds out to be the same result, but division can be slower. It depends a bit on whether the computer works out that you are dividing by a power of two. If you want to avoid division, you can use the `trailing_zeros()` function and the `checked_shr()` functions to shift instead:
 
 ```rust
 fn next_set(x: u32) -> Option<u32> {
-    if x > 0 {
-        // x               xxx0 1110
-        // rightmost:      0000 0010 <- rightmost 1-bit
-        // carried:        xxx1 0000 <- removed 1-string and put carry
-        // ones:           0001 1110 <- 1-string + carry
-        // ones(shifted)   0000 0011 <- carry will add a bit, we remove another
-        // final           xxx1 0011 <- one bit went up, the others down
-        let rightmost = x & neg(x);
-        let carried = x.checked_add(rightmost)?; // returns None if overflow
-        let ones = x ^ carried;
-        let ones = ones >> (ones.trailing_zeros() + 2); // has to be logical shift!
-        Some(carried | ones)
-    } else {
-        // if x is zero, the shift of ones will be too large (wordsize + 2),
-        // but we already know that there is only one number with zero bits set,
-        // so there isn't any next.
-        None
-    }
+    // x               xxx0 1110
+    // rightmost:      0000 0010 <- rightmost 1-bit
+    // carried:        xxx1 0000 <- removed 1-string and put carry
+    // x ^ carried:    0001 1110 <- 1-string + carry
+    // ones:           0000 0011 <- carry will add a bit, we remove another
+    // carried | ones  xxx1 0011 <- one bit went up, the others down
+    let rightmost = x & neg(x);
+    let carried = x.checked_add(rightmost)?;
+    let ones = (x ^ carried).checked_shr(x.trailing_zeros() + 2)?;
+    Some(carried | ones)
 }
 ```
 
