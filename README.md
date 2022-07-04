@@ -1510,36 +1510,60 @@ where
 
 Although there is a loop in the source code, which would in normal circumstances means the compiled code would have a loop as well, we are here looping a constant number of times, the constant is known at compiler time, and so [the compiler can unroll the loop](https://godbolt.org/z/6n78qTh4q) to produce the same kind of code as if we wrote the instructions using copy and paste.
 
-
-
 #### Base two logarithms
 
+Many data structures require that you split your data into some "chunks" of size $k\cdot\log_2 n$, but how do you get the base-two logarithm efficiently? Some processors have instructions for this, but that is rare. Many runtime libraries have a `log()` function of some sorts, but they usually go over floating point numbers and can be inefficient. There is a much simpler and easier way.
+
+For any number $x$,
+$\lfloor\log_2 x\rfloor$ is the position of the rightmost set bit in
+$x$. You can see this if you think of how many times you can double 1 (shift 1 to the left) before you exceed $x$. The base-two logarithm of $x$ is
+the largest integer $k$ such that
+$2^k \leq x$. So if 
+$x$ has the form
+
+$$x = \sum_{i=0}^{w-1}b_i\cdot 2^i = 2^k + \sum_{i=0}^{k-1}b_i\cdot 2^i$$
+
+where $k$ is the rightmost set bit, you can immidiately see that
+$k$ is both
+$\log_2 x$ and the leftmost set bit in
+$x$.
+
+With `x.leading_zeros()` we can get the offset from the left to the first set bit, but we need to get the same position counted from the right (since for numbers we index from the right). If the word size is $w$, the leftmost position has index
+$w-1$, the next has index
+$w-2$, and so forth. We should count in that direction `x.leading_zeros()` times to get the index.
+
+Be careful, though: if `x` is zero, then there is no leftmost set bit, and the result of `x.leading_zeros()` is `w`, and we have an overflow! (That is assuming that `x.leading_zeros()` gives us `w`, that can be language and platform dependent).
+
+You can explicitly check for `x != 0` before you compute the logarithm, or as I have done, use a checked subtraction:
+
 ```rust
-// Get the size for a value of a generic type
-fn ws<T>(_x: T) -> u32 {
-    (std::mem::size_of::<T>() * u8::BITS as usize) as u32
+fn log2_down(x: u32) -> Option<u32> {
+    // Returns None if x is zero, since that triggers an overflow in the
+    // subtraction
+    (u32::BITS - 1).checked_sub(x.leading_zeros())
 }
+```
 
-fn log2_down<W>(x: W) -> Option<u32>
-where
-    W: num_traits::PrimInt,
-{
-    if x > W::zero() {
-        Some(ws(x) - 1 - x.leading_zeros())
-    } else {
-        None
-    }
-}
+By far the most applications where I've needed a base-two logarithm, it was the rounded down $\lfloor\log_2 x\rfloor$, or it was cases where I needed to add one
+$\lfloor\log_2 x\rfloor + 1$. It is very rare to need
+$\lceil\log_2 x\rceil$, but it is not much harder to compute.
 
-fn log2_up<W>(x: W) -> Option<u32>
-where
-    W: num_traits::PrimInt,
-{
-    let i = log2_down(x)?;
-    // If i isn't the rightmost set bit, x is not a power of two, and then
-    // we need to add one to the result. We can check i != x.trailing_zeros()
-    // to get a boolean and cast it to u32 to get 0 or 1 to add.
-    Some(i + (i != x.trailing_zeros()) as u32)
+The difference between $\lfloor\log_2 x\rfloor + 1$ and
+$\lceil\log_2 x\rceil$ is just that
+
+$$\lceil\log_2 x\rceil = \begin{cases}
+    \lfloor\log_2 x\rfloor     & \mathtt{twopow(x)} \\
+    \lfloor\log_2 x\rfloor + 1 & \mathrm{otherwise}
+\end{cases}$$
+
+where `twopow(x)` is the function we implemented above that checks if `x` is a power of two.
+
+We could use `twopow(x)` to adjust the lower bound, we have it readily available, but we could also just check if the leftmost and rightmost set bits are the same. That also checks if we have a power of two. I will use that, simply for variaty. The check gives me a boolean value, which I cannot add to a number in Rust's type system, but I can cast it to an integer and get either zero or one, and then add the result:
+
+```rust
+fn log2_up(x: u32) -> Option<u32> {
+    let k = log2_down(x)?; // Returns None if we can't compute log2_down()
+    Some(k + (k != x.trailing_zeros()) as u32)
 }
 ```
 

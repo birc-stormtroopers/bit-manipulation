@@ -1,3 +1,4 @@
+use core::ops::*;
 use num_traits;
 
 fn basic_operations() {
@@ -193,28 +194,15 @@ fn twopow2(x: u8) -> bool {
     return x != 0 && x == (x & -(x as i8) as u8);
 }
 
-// Get the size for a value of a generic type
-fn ws<T>(_x: T) -> u32 {
-    (std::mem::size_of::<T>() * u8::BITS as usize) as u32
+fn log2_down(x: u32) -> Option<u32> {
+    // Returns None if x is zero, since that triggers an overflow in the
+    // subtraction
+    (u32::BITS - 1).checked_sub(x.leading_zeros())
 }
 
-fn log2_down<W>(x: W) -> Option<u32>
-where
-    W: num_traits::PrimInt,
-{
-    if x > W::zero() {
-        Some(ws(x) - 1 - x.leading_zeros())
-    } else {
-        None
-    }
-}
-
-fn log2_up<W>(x: W) -> Option<u32>
-where
-    W: num_traits::PrimInt,
-{
-    let i = log2_down(x)?;
-    Some(i + (i != x.trailing_zeros()) as u32)
+fn log2_up(x: u32) -> Option<u32> {
+    let k = log2_down(x)?; // Returns None if we can't compute log2_down()
+    Some(k + (k != x.trailing_zeros()) as u32)
 }
 
 fn log2_test() {
@@ -225,35 +213,6 @@ fn log2_test() {
     }
     println!("");
 }
-
-fn leftmost8(x: u8) -> u8 {
-    let mut x = x;
-    x |= x >> 1;
-    x |= x >> 2;
-    x |= x >> 4;
-    x ^ (x >> 1)
-}
-
-fn leftmost16(x: u16) -> u16 {
-    let mut x = x;
-    x |= x >> 1;
-    x |= x >> 2;
-    x |= x >> 4;
-    x |= x >> 8;
-    x ^ (x >> 1)
-}
-
-fn leftmost32(x: u32) -> u32 {
-    let mut x = x;
-    x |= x >> 1;
-    x |= x >> 2;
-    x |= x >> 4;
-    x |= x >> 8;
-    x |= x >> 16;
-    x ^ (x >> 1)
-}
-
-use core::ops::*;
 
 fn leftmost<W>(x: W) -> W
 where
@@ -345,8 +304,6 @@ fn main() {
         );
     }
 
-    log2_test();
-
     for i in 0..10 {
         println!("leftmost of {:08b} is {:08b}", i, leftmost(i));
     }
@@ -357,4 +314,6 @@ fn main() {
     let ones = (-1i32) as u32;
     println!("{} [{:08b}] -> {:?}", ones, ones, next_set(ones));
     println!("{} [{:08b}] -> {:?}", 0, 0, next_set(0));
+
+    log2_test();
 }
