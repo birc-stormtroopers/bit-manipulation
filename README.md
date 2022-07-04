@@ -1544,7 +1544,8 @@ $x$ has the form
 
 $$x = \sum_{i=0}^{w-1}b_i\cdot 2^i = 2^k + \sum_{i=0}^{k-1}b_i\cdot 2^i$$
 
-where $k$ is the rightmost set bit, you can immidiately see that
+where $k$
+is the rightmost set bit, you can immidiately see that
 $k$ is both
 $\log_2 x$ and the leftmost set bit in
 $x$.
