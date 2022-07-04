@@ -228,12 +228,6 @@ where
     x ^ (x >> 1)
 }
 
-// just because I am tired of the casting in expressions
-#[inline]
-fn neg(x: u32) -> u32 {
-    -(x as i32) as u32
-}
-
 fn next_set(x: u32) -> Option<u32> {
     // x               xxx0 1110
     // rightmost:      0000 0010 <- rightmost 1-bit
@@ -245,6 +239,17 @@ fn next_set(x: u32) -> Option<u32> {
     let carried = x.checked_add(rightmost)?; // returns None if overflow
     let ones = (x ^ carried).checked_shr(x.trailing_zeros() + 2)?;
     Some(carried | ones)
+}
+
+// unary minus on unsigned not allowed in Rust, so this fakes it through a cast
+#[inline]
+fn neg(x: u32) -> u32 {
+    -(x as i32) as u32
+}
+fn ashift(x: u32, k: u32) -> u32 {
+    let sign_extension = neg(x >> 31); // all zeros or all ones depending on leftmost bit
+    let sign_extension = sign_extension << (32 - k); // except lower k
+    (x >> k) | sign_extension
 }
 
 fn main() {
@@ -316,4 +321,16 @@ fn main() {
     println!("{} [{:08b}] -> {:?}", 0, 0, next_set(0));
 
     log2_test();
+
+    for i in -55i32..-50i32 {
+        println!("{}", i);
+        println!("{:08b} >> 2 = {:08b}", i, i >> 1);
+        println!("{:08b} >> 2 = {:08b}", i, ashift(i as u32, 1));
+    }
+    println!("");
+    for i in 50i32..55i32 {
+        println!("{}", i);
+        println!("{:08b} >> 2 = {:08b}", i, i >> 1);
+        println!("{:08b} >> 2 = {:08b}", i, ashift(i as u32, 1));
+    }
 }

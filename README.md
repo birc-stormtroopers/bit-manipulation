@@ -973,6 +973,27 @@ fn unpack_dna(dna: u8) -> (u8, u8, u8, u8) {
 }
 ```
 
+### Arithmetic shift from logical shift
+
+If your language/platform doesn't support arithmetic shift (repeating the rightmost bit instead of always zero when you shift right), then you can obtain it from logical shift.
+
+One way is to shift the input word the wordsize minus one, $w-1$, to the right. That puts either a zero or a one at the rightmost bit, depending on whether the word's leftmost bit is set or not. If you then shift the sign of this, 0 to 0 and 1 to -1, you either get all zeros or all ones. Shift that back left so you align the bits where the sign-bit should have been shifted and OR it to the shifted word:
+
+![Arithmetic shift using logical shift](figs/ashift.png)
+
+```rust
+// unary minus on unsigned not allowed in Rust, so this fakes it through a cast
+#[inline]
+fn neg(x: u32) -> u32 {
+    -(x as i32) as u32
+}
+fn ashift(x: u32, k: u32) -> u32 {
+    let sign_extension = neg(x >> 31); // all zeros or all ones depending on leftmost bit
+    let sign_extension = sign_extension << (32 - k); // except lower k
+    (x >> k) | sign_extension
+}
+```
+
 
 ### The right-most set bit
 
