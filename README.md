@@ -1537,19 +1537,7 @@ Many data structures require that you split your data into some "chunks" of size
 
 For any number $x$,
 $\lfloor\log_2 x\rfloor$ is the position of the rightmost set bit in
-$x$. You can see this if you think of how many times you can double 1 (shift 1 to the left) before you exceed $x$. The base-two logarithm of $x$ is
-the largest integer $k$ such that
-$2^k \leq x$. So if 
-$x$ has the form
-
-$$x = \sum_{i=0}^{w-1}b_i\cdot 2^i = 2^k + \sum_{i=0}^{k-1}b_i\cdot 2^i$$
-
-where $k$
-is the rightmost set bit, you can immidiately see that
-$k$ is both
-$\log_2 x$ and the leftmost set bit in
 $x$.
-
 With `x.leading_zeros()` we can get the offset from the left to the first set bit, but we need to get the same position counted from the right (since for numbers we index from the right). If the word size is $w$, the leftmost position has index
 $w-1$, the next has index
 $w-2$, and so forth. We should count in that direction `x.leading_zeros()` times to get the index.
