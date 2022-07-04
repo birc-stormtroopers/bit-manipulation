@@ -1566,7 +1566,8 @@ fn log2_down(x: u32) -> Option<u32> {
 ```
 
 By far the most applications where I've needed a base-two logarithm, it was the rounded down $\lfloor\log_2 x\rfloor$, or it was cases where I needed to add one
-$\lfloor\log_2 x\rfloor + 1$. It is very rare to need
+$\lfloor\log_2 x\rfloor + 1$. 
+It is very rare to need
 $\lceil\log_2 x\rceil$, but it is not much harder to compute.
 
 The difference between $\lfloor\log_2 x\rfloor + 1$ and
