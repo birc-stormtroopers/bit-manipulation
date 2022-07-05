@@ -69,7 +69,7 @@ However, if you interpret the bit pattern as a signed integer, you might have ne
 
 There's a couple of issues if you use shifting in your code. One is that you do not always control whether you use logical or arithmetic shift. All languages I know of, that have unsigned integer types, will use logical shift on those. But if you have signed integers, you need to check with your language. Some languages have separate operators for logical and arithmetic shift, `>>>` for logical and `>>` for arithemtic shift in Java, for example. Or they will use arithmetic shift for signed types and logical for unsigned. Or, as in with the every complicated C programming language, leave it undefined--you might get one, you might get the other, and we are not going to tell you.
 
-Another issue is the offset `k` we shift with. Since zeros (or maybe ones with arithmetic shift) are shifted in, you might think that you can shift by an arbitrary amount. Think again. The hardware instructions for shifting generally require a small number that can be encoded in machine code, and they don't necessarily accept shifts larger than the word size. (In C, it is of course undefined what happens if you shift by more than the word size; Rust is better, here it is a compile time error to even attempt). So keep `k` smaller than the word size if you want to live a long and happy programmer life. There are times where this is annoying, and you at least would want to shift a 32-bit word by 32 bits and just let the result be all zeros, for example, but then you have to program your way around that.
+Another issue is the offset `k` we shift with. Since zeros (or maybe ones with arithmetic shift) are shifted in, you might think that you can shift by an arbitrary amount. Think again. The hardware instructions for shifting generally require a small number that can be encoded in machine code, and they don't necessarily accept shifts larger than the word size. (In C, it is of course undefined what happens if you shift by more than the word size; Rust is better, here it is a compile time error to even attempt). So keep `k` smaller than the word size if you want to live a long and happy programmer life. There are times where this is annoying, and you at least would want to shift a 32-bit word by 32 bits and just let the result be all zeros, for example, but then you have to program your way around that.[^6]
 
 ### Using the operators
 
@@ -1580,7 +1580,7 @@ fn log2_up(x: u32) -> Option<u32> {
 
 
 
-### Pop-count
+### Rank and popcount
 
 If you have a word, `w`, and want the number of set bits in that word, that is known as [popcount or Hamming weight](https://en.wikipedia.org/wiki/Hamming_weight). If you are wondering why that would ever be interesting, one application is so-called rank queries:
 
@@ -1605,8 +1605,37 @@ I will simplifiy the notation a bit, since we always look at set bits, from `ran
 
 Ok, so what can we do to get `rank(w,i)` from a word `w`? Whatever `w` is, we want to count the number of set bits before index `i` but not those that come after. If we have a function `popcount(w)` that returns the number of set bits in `w`, we can mask out the bits we want and call it.
 
+We can mask the bits we want by shifting a pattern of all ones to the right  until it only covers the bits we are interested in. This is easiest if we only shift by offsets from zero to the word size minus one, since those are the value offsets we can shift by, but we want to allow from zero up to the word size, since those are the indices we might be interested in getting the rank from (the rank with none to all the bits).
+
+However, we know that the rank for zero will always be zero, since there cannot be any set bits at indices before zero, so we can write a simple mask function that only allows those indices:
+
+```rust
+/// Build mask 000....00111 with i one-bits at the right.
+/// Valid values for i: 1, 2, ..., 32 (inclusive)
+fn rank_mask(i: u32) -> u32 {
+    0xffffffff >> (u32::BITS - i)
+}
+```
+
+Then we can always treat zero as a special case.
+
+If you are into [branchless programming](https://en.wikipedia.org/wiki/Branch_(computer_science)#Branch-free_code) you might not want to use `if`-statements to handle special cases, but with the bit tricks we know, we can do that as well.
+
+
 **FIXME**
 
+
+```rust
+fn rank_mask(i: u32) -> u32 {
+    // We allow indexing on bits 0, 1, ..., 32 (inclusive).
+    // We can't shift 32, so we use mod to wrap around 32, so both
+    // zero and 32 will be shifted by zero, but then we use a mask
+    // that is zero for zero and all ones for 32.
+    let shift_by = (u32::BITS - i) % 32;  // modulo powers of two is just bit masking
+    let mask = -((i != 0) as i32) as u32; // zeros or ones depending on i
+    mask >> shift_by
+}
+```
 
 
 
@@ -1624,3 +1653,4 @@ Ok, so what can we do to get `rank(w,i)` from a word `w`? Whatever `w` is, we wa
 
 [^5]: There are multiple ways to encode a sequence over a larger alphabet as a sequence of bits. A [one-hot encoding](https://en.wikipedia.org/wiki/One-hot) will always do the trick. But there are smarter ways that might be the topic for another repo.
 
+[^6]: This is probably the one most annoying part about working with bit patterns. If you could shift with offsets from zero up to *and including* the word size, thousands of problems would be simpler and not need to deal with special cases. But alas, that is not how the world works.

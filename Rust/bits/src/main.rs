@@ -251,14 +251,26 @@ fn popcount(x: u32) -> u32 {
     return count;
 }
 
-fn rank(w: u32, i: u32) -> u32 {
+/*
+fn rank_mask(i: u32) -> u32 {
     // We allow indexing on bits 0, 1, ..., 32 (inclusive).
     // We can't shift 32, so we use mod to wrap around 32, so both
     // zero and 32 will be shifted by zero, but then we use a mask
     // that is zero for zero and all ones for 32.
     let shift_by = (u32::BITS - i) % 32;
     let mask = -((i != 0) as i32) as u32;
-    w & (mask >> shift_by)
+    mask >> shift_by
+}
+*/
+
+fn rank_mask(i: u32) -> u32 {
+    println!("i: {}", i);
+    let zero_mask = -((i != 0) as i32) as u32;
+    let bit = 1 & zero_mask;
+    let shift = i & zero_mask;
+    println!("shift: {}", shift);
+    let mask = bit;
+    mask
 }
 
 fn main() {
@@ -343,10 +355,10 @@ fn main() {
         println!("{:08b} >> 2 = {:08b}", i, ashift(i as u32, 1));
     }
 
-    let w = 0xdeadbeef;
+    let w: u32 = 0xdeadbeef;
     println!("{:032b}", w);
     for i in 0..=32 {
         // we can index up to 32
-        println!("{:032b} {:032b}", rank(w, i), rank(w, i));
+        println!("{:032b} {:032b}", rank_mask(i), rank_mask(i));
     }
 }
