@@ -1582,7 +1582,36 @@ fn log2_up(x: u32) -> Option<u32> {
 
 ### Pop-count
 
+If you have a word, `w`, and want the number of set bits in that word, that is known as [popcount or Hamming weight](https://en.wikipedia.org/wiki/Hamming_weight). If you are wondering why that would ever be interesting, one application is so-called rank queries:
+
+    Given a sequence x, a key k, and an index i, rank(x,k,i) is the number of occurrences of k at any index j < k.
+
+For example, if `x` is a string and the key is some letter, `a`, `rank(x,a,i)` is the number of times we see an `a` before index `i`. It might not be immidiately obvious why this is something we would be interested in knowing, but you will have to take my word for it, or take the GSA class.
+
+For bits, keys are either zero or one, which simplifies things a little, and `rank(x,0,i) = i - rank(x,1,i)` (the number of zeros that appear before `i` is the total number of elements we see before index `i` (where we index from zero) minus those of them that are ones).
+
+```
+    x           = 10011100
+    i           = 01234567
+    rank(x,0,i) = 00122223
+    rank(x,1,i) = 01112344
+```
+
+So if we can reduce a sequence of whatever alphabet we have, to a sequence of bits, we only need to solve the problem for counts of ones or zeros, and I will use ones here.[^5]
+
+I will only consider a single word, but for long strings you can use [bit vectors](https://github.com/birc-stormtroopers/bv) and a bit of preprocessing that you can see in GSA.
+
+I will simplifiy the notation a bit, since we always look at set bits, from `rank(w,1,i)` to `rank(w,i)` for words `w`.
+
+Ok, so what can we do to get `rank(w,i)` from a word `w`? Whatever `w` is, we want to count the number of set bits before index `i` but not those that come after. If we have a function `popcount(w)` that returns the number of set bits in `w`, we can mask out the bits we want and call it.
+
 **FIXME**
+
+
+
+
+
+
 
 
 [^1]: There might be flags set in a register to tell you if any set bits were shifted out, but unless you are writing machine code, you do not have access to this, so from a high-level programming perspective the bits are lost.
@@ -1592,3 +1621,6 @@ fn log2_up(x: u32) -> Option<u32> {
 [^3]: There is also a [one's-complement representation](https://en.wikipedia.org/wiki/Ones'_complement) but no one uses it, to the best of my knowledge.
 
 [^4]: There is a [Wrapping](https://doc.rust-lang.org/stable/std/num/struct.Wrapping.html) type if you want wrapping ($x \mod 2^\mathrm{ws}$) behaviour. There is also a compiler flag, `#![allow(arithmetic_overflow)]`, but explicitly using the wrapping type makes it explicit in the code that this is the behaviour that you want.
+
+[^5]: There are multiple ways to encode a sequence over a larger alphabet as a sequence of bits. A [one-hot encoding](https://en.wikipedia.org/wiki/One-hot) will always do the trick. But there are smarter ways that might be the topic for another repo.
+

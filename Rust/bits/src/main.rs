@@ -1,5 +1,4 @@
 use core::ops::*;
-use num_traits;
 
 fn basic_operations() {
     let x: u16 = 0xf4e2; // [f: 1111, 4: 0010, e: 1110, 2: 0010]
@@ -176,16 +175,6 @@ fn unpack_dna(dna: u8) -> (u8, u8, u8, u8) {
     (x, y, z, w)
 }
 
-fn popcount(x: u8) -> u8 {
-    let mut count = 0;
-    let mut y = x;
-    while y > 0 {
-        count += 1;
-        y = y & (y - 1);
-    }
-    return count;
-}
-
 fn twopow(x: u8) -> bool {
     return x != 0 && x & (x - 1) == 0;
 }
@@ -252,6 +241,26 @@ fn ashift(x: u32, k: u32) -> u32 {
     (x >> k) | sign_extension
 }
 
+fn popcount(x: u32) -> u32 {
+    let mut count = 0;
+    let mut y = x;
+    while y > 0 {
+        count += 1;
+        y = y & (y - 1);
+    }
+    return count;
+}
+
+fn rank(w: u32, i: u32) -> u32 {
+    // We allow indexing on bits 0, 1, ..., 32 (inclusive).
+    // We can't shift 32, so we use mod to wrap around 32, so both
+    // zero and 32 will be shifted by zero, but then we use a mask
+    // that is zero for zero and all ones for 32.
+    let shift_by = (u32::BITS - i) % 32;
+    let mask = -((i != 0) as i32) as u32;
+    w & (mask >> shift_by)
+}
+
 fn main() {
     basic_operations();
     unsigned_arithmethic();
@@ -295,7 +304,7 @@ fn main() {
     println!("{} {} {} {}", x, y, z, w);
 
     for i in 0..8 {
-        println!("popcount({}) = {}", i, popcount(i));
+        println!("popcount({}) = {}", i, popcount(i as u32));
         println!("twopow({}) = {}", i, twopow(i));
         println!("twopow2({}) = {}", i, twopow2(i));
     }
@@ -332,5 +341,12 @@ fn main() {
         println!("{}", i);
         println!("{:08b} >> 2 = {:08b}", i, i >> 1);
         println!("{:08b} >> 2 = {:08b}", i, ashift(i as u32, 1));
+    }
+
+    let w = 0xdeadbeef;
+    println!("{:032b}", w);
+    for i in 0..=32 {
+        // we can index up to 32
+        println!("{:032b} {:032b}", rank(w, i), rank(w, i));
     }
 }
