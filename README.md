@@ -1713,8 +1713,26 @@ fn popcount(x: u32) -> u32 {
 
 If the word is all ones, though, this will take the same time as the simpler algorithm.
 
+You can do better than this, though. Here is an algorithm that runs in logarithmic time in the word size (which of course means constant time since word sizes are fixed, but you can think of it as $\log\log n$ time if you work with data of size
+$n$ in a traditional asymptotic analysis). It works by iteratively adding bits horisontally (adding bits next to each other in the word), for larger and larger sub-words, until the final result is an integer in the full word.
 
+**FIXME**
 
+![Summing 1-bit words](figs/popcount/m1-sum.png)
+
+![Summing 1-bit words using bit manipulation](figs/popcount/m1-bits.png)
+
+![Summing 2-bit words](figs/popcount/m2-sum.png)
+
+![Summing 2-bit words using bit manipulation](figs/popcount/m2-bits.png)
+
+![Summing 4-bit words](figs/popcount/m4-sum.png)
+
+![Summing 4-bit words using bit manipulation](figs/popcount/m4-bits.png)
+
+![Summing 1-bit words](figs/popcount/m8-sum.png)
+
+![Summing 1-bit words using bit manipulation](figs/popcount/m8-bits.png)
 
 
 
