@@ -1621,9 +1621,7 @@ Then we can always treat zero as a special case.
 
 If you are into [branchless programming](https://en.wikipedia.org/wiki/Branch_(computer_science)#Branch-free_code) you might not want to use `if`-statements to handle special cases, but with the bit tricks we know, we can do that as well.
 
-
-**FIXME**
-
+You could do something like this:
 
 ```rust
 fn rank_mask(i: u32) -> u32 {
@@ -1636,6 +1634,84 @@ fn rank_mask(i: u32) -> u32 {
     mask >> shift_by
 }
 ```
+
+or like this:
+
+```rust
+fn rank_mask(i: u32) -> u32 {
+    // Shift a bit up to position i-1 and get that bit and
+    // the bits to the right of it. Use % to avoid overflow.
+    let shift = (i as i32 - 1) as u32 % u32::BITS;
+    let bit = 1 << shift; // first bit we want
+    let mask = bit | (bit - 1); // plus those to the right
+
+    // A mask that is all zeros if i is zero and all ones
+    // if i is non-zero
+    let zero_mask = -((i != 0) as i32) as u32;
+
+    mask & zero_mask
+}
+```
+
+and you can probably think of other solutions (and it would be great exercise).
+
+(Of course, if we could just shift by the word size and have the result be all zeros, then things would be even simpler, but that is generally not supported by the hardware).
+
+In Rust, though, we have a checked right-shift that we can use. With it, we can either get the normal result, or if there is an overflow, get a value of our choosing. It could look like this:
+
+```rust
+fn rank_mask(i: u32) -> u32 {
+    0xffffffffu32.checked_shr(u32::BITS - i).unwrap_or(0)
+}
+```
+
+If `0 < i < 32`, `u32::BITS - i` is a valid amount to shift, so `checked_shr()` returns `Some(value)` that we unwrap to get the result.
+
+If `i` is zero, `u32::BITS - i` is 32 and we have an overflow, and `checked_shr()` returns `None`, but then `unwrap_or()` lets us pick a value, which is zero here.
+
+If `i > 32` I don't care; there will be an arithmetic overflow i `u32::BITS - i` and it will serve the programmer who calls the function with invalid arguments just right.
+
+Anyway, back to rank. If we can mask, then a rank that counts the number of set bits before index `i` is straightforward:
+
+```rust
+fn rank(w: u32, i: u32) -> u32 {
+    (w & rank_mask(i)).count_ones()
+}
+```
+
+The `count_ones()` is Rust's popcount function. There usually is one, but it can be well hidden in some languages, even languages that are frequently used for low-level programming such as C. There, there are usually compiler extensions (like `__builtin_popcount()` in GCC), but there isn't anything guaranteed by the standard.[^7]
+
+If you happen to be using a language/architecture without one, you can roll your own, of course.
+
+A simple solution is to run though all the bits and count how many are set:
+
+```rust
+fn popcount(x: u32) -> u32 {
+    let mut count = 0;
+    for i in 0..32 {
+        count += (x >> i) & 1
+    }
+    return count;
+}
+```
+
+It takes time proportional to the word size, but since word sizes are usually logarithmic in the data size we are working on, it isn't that bad.
+
+We also already saw a solution that takes time proportional to the number of set bits, the Kernighan algorithm that iteratively flips the rightmost bit until we hit zero:
+
+```rust
+fn popcount(x: u32) -> u32 {
+    let mut count = 0;
+    let mut y = x;
+    while y > 0 {
+        count += 1;
+        y = y & (y - 1);
+    }
+    return count;
+}
+```
+
+If the word is all ones, though, this will take the same time as the simpler algorithm.
 
 
 
@@ -1654,3 +1730,5 @@ fn rank_mask(i: u32) -> u32 {
 [^5]: There are multiple ways to encode a sequence over a larger alphabet as a sequence of bits. A [one-hot encoding](https://en.wikipedia.org/wiki/One-hot) will always do the trick. But there are smarter ways that might be the topic for another repo.
 
 [^6]: This is probably the one most annoying part about working with bit patterns. If you could shift with offsets from zero up to *and including* the word size, thousands of problems would be simpler and not need to deal with special cases. But alas, that is not how the world works.
+
+[^7]: If you are reading this, chances are that you are most familiar with Python. There, since 3.10, you have [`bit_count()`](https://docs.python.org/3/library/stdtypes.html#int.bit_count).
