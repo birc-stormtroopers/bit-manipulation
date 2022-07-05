@@ -241,12 +241,22 @@ fn ashift(x: u32, k: u32) -> u32 {
     (x >> k) | sign_extension
 }
 
+/*
 fn popcount(x: u32) -> u32 {
     let mut count = 0;
     let mut y = x;
     while y > 0 {
         count += 1;
         y = y & (y - 1);
+    }
+    return count;
+}
+*/
+
+fn popcount(x: u32) -> u32 {
+    let mut count = 0;
+    for i in 0..32 {
+        count += (x >> i) & 1
     }
     return count;
 }
@@ -263,14 +273,28 @@ fn rank_mask(i: u32) -> u32 {
 }
 */
 
+/*
 fn rank_mask(i: u32) -> u32 {
-    println!("i: {}", i);
+    // Shift a bit up to position i-1 and get that bit and
+    // the bits to the right of it. Use % to avoid overflow.
+    let shift = (i as i32 - 1) as u32 % u32::BITS;
+    let bit = 1 << shift; // first bit we want
+    let mask = bit | (bit - 1); // plus those to the right
+
+    // A mask that is all zeros if i is zero and all ones
+    // if i is non-zero
     let zero_mask = -((i != 0) as i32) as u32;
-    let bit = 1 & zero_mask;
-    let shift = i & zero_mask;
-    println!("shift: {}", shift);
-    let mask = bit;
-    mask
+
+    mask & zero_mask
+}
+*/
+
+fn rank_mask(i: u32) -> u32 {
+    0xffffffffu32.checked_shr(u32::BITS - i).unwrap_or(0)
+}
+
+fn rank(w: u32, i: u32) -> u32 {
+    (w & rank_mask(i)).count_ones()
 }
 
 fn main() {
@@ -359,6 +383,15 @@ fn main() {
     println!("{:032b}", w);
     for i in 0..=32 {
         // we can index up to 32
-        println!("{:032b} {:032b}", rank_mask(i), rank_mask(i));
+        println!(
+            "{:032b} {:032b} {}",
+            rank_mask(i),
+            w & rank_mask(i),
+            rank(w, i)
+        );
+    }
+
+    for i in 0..10 {
+        println!("popcount({:08b}) = {}", i, popcount(index));
     }
 }
