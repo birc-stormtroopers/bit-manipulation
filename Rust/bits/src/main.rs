@@ -253,6 +253,7 @@ fn popcount(x: u32) -> u32 {
 }
 */
 
+/*
 fn popcount(x: u32) -> u32 {
     let mut count = 0;
     for i in 0..32 {
@@ -260,6 +261,39 @@ fn popcount(x: u32) -> u32 {
     }
     return count;
 }
+*/
+
+fn popcount32(x: u32) -> u32 {
+    let m1 = 0b01010101010101010101010101010101;
+    let m2 = 0b00110011001100110011001100110011;
+    let m4 = 0b00001111000011110000111100001111;
+
+    let mut x = x;
+    x -= (x >> 1) & m1;
+    x = (x & m2) + ((x >> 2) & m2);
+    x = (x + (x >> 4)) & m4;
+    x += x >> 8;
+    x += x >> 16;
+    x & 0xff
+}
+
+/*
+fn popcount64(x: u64) -> u64 {
+    let m1 = 0x5555555555555555;
+    let m2 = 0x3333333333333333;
+    let m4 = 0x0f0f0f0f0f0f0f0f;
+    let m8 = 0x00ff00ff00ff00ff;
+    let m16 = 0x0000ffff0000ffff;
+    let m32 = 0x00000000ffffffff;
+    let x = (x & m1) + ((x >> 1) & m1);
+    let x = (x & m2) + ((x >> 2) & m2);
+    let x = (x & m4) + ((x >> 4) & m4);
+    let x = (x & m8) + ((x >> 8) & m8);
+    let x = (x & m16) + ((x >> 16) & m16);
+    let x = (x & m32) + ((x >> 32) & m32);
+    x
+}
+*/
 
 /*
 fn rank_mask(i: u32) -> u32 {
@@ -340,7 +374,7 @@ fn main() {
     println!("{} {} {} {}", x, y, z, w);
 
     for i in 0..8 {
-        println!("popcount({}) = {}", i, popcount(i as u32));
+        println!("popcount({}) = {}", i, popcount32(i as u32));
         println!("twopow({}) = {}", i, twopow(i));
         println!("twopow2({}) = {}", i, twopow2(i));
     }
@@ -391,7 +425,12 @@ fn main() {
         );
     }
 
-    for i in 0..10 {
-        println!("popcount({:08b}) = {}", i, popcount(index));
+    for i in 0xdeadbeef..0xdeadbeff {
+        println!(
+            "popcount({:08b}) = {} [{}]",
+            i,
+            popcount32(i),
+            i.count_ones()
+        );
     }
 }

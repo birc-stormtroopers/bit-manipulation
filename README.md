@@ -1716,24 +1716,213 @@ If the word is all ones, though, this will take the same time as the simpler alg
 You can do better than this, though. Here is an algorithm that runs in logarithmic time in the word size (which of course means constant time since word sizes are fixed, but you can think of it as $\log\log n$ time if you work with data of size
 $n$ in a traditional asymptotic analysis). It works by iteratively adding bits horisontally (adding bits next to each other in the word), for larger and larger sub-words, until the final result is an integer in the full word.
 
-**FIXME**
+The first step is to add together all neighbouring bits. Since we start with two bits, the largest number we can get is two, which can fit into two bits, so we can put the result into the space the two original bits occupy.
 
 ![Summing 1-bit words](figs/popcount/m1-sum.png)
 
+The way to do this is by using a mask, `m1`, that picks every second bit, bit 0, 2, 4, 6, etc. Mask the input `x` with `m1` to get half the bits you need to add, then shift `x` by one, `x >> 1`, and mask again, `(x >> 1) & m1`, to get the other bits. The shift puts one set of bits on top of the others. Then, when we add `x & m1` and `(x >> 1) & m1` as full words, the bits that may be set are on top of each other, so we can add them as if it was just one big word interpreted as an integer, and since there is a blank bit to the left of each of the aligned bits, we cannot get an overflow. The result is the pair-wise sums occuppying sub-words of `x` of size two.
+
 ![Summing 1-bit words using bit manipulation](figs/popcount/m1-bits.png)
+
+Next, we do the same thing, but with the new two-bit words. We pick them pair-wise and add them, putting the result in the four-bit sub-words they occupied before.
 
 ![Summing 2-bit words](figs/popcount/m2-sum.png)
 
+The bit-manipulations neccesary are the same as for the first step, except that the new mask, `m2`, has two set bits, then two un-set bits, then two set, and so on, and instead of shifting `x` one to the right to align single bits, we shift by two to align the two-bit sub-words. That put two-bit words on top of each other, with two zero-bits to the left of each aligned pair, and the result goes into four-bit sub-words. Since the input numbers to the addition cannot be more than two, the sum cannot be more than four, which can fit into three bits, we cannot get overflow when we put the results in four bit sub-words, so adding `(x & m2) + ((x >> 2) + m2)` as a whole word cannot result in any overflow that can mess up the separate 4-bit words.
+
 ![Summing 2-bit words using bit manipulation](figs/popcount/m2-bits.png)
+
+In the next step, we need to add four-bit sub-words and put them in 8-bit subwords.
 
 ![Summing 4-bit words](figs/popcount/m4-sum.png)
 
+The procedure is, not surprisingly, the same as before. The mask now alternates between four set and four un-set bits, and we need to shift by four, but otherwise there is nothing new. Because we are adding four-bit numbers, the result can fit in eight bits without overflow, so we end up with counts in separate 8-bit sub-words.
+
 ![Summing 4-bit words using bit manipulation](figs/popcount/m4-bits.png)
 
-![Summing 1-bit words](figs/popcount/m8-sum.png)
+If we are counting for a 16-bit word as in the figure, we have one remaining step: adding the two 8-bit words into a single 16-bit word, that will contain the count of ones in the original input.
 
-![Summing 1-bit words using bit manipulation](figs/popcount/m8-bits.png)
+![Summing 8-bit words](figs/popcount/m8-sum.png)
 
+Use a mask that has eight set and eight un-set bits and shift `x` by eight to get one of the numbers to add, and you are done.
+
+![Summing 8-bit words using bit manipulation](figs/popcount/m8-bits.png)
+
+In Rust, an implementation can look like this:
+
+```rust
+fn popcount16(x: u16) -> u16 {
+    let m1 = 0b0101010101010101;
+    let m2 = 0b0011001100110011;
+    let m4 = 0b0000111100001111;
+    let m8 = 0b0000000011111111;
+
+    let x = (x & m1) + ((x >> 1) & m1);
+    let x = (x & m2) + ((x >> 2) & m2);
+    let x = (x & m4) + ((x >> 4) & m4);
+    let x = (x & m8) + ((x >> 8) & m8);
+    x
+}
+```
+
+For larger words, you need to repeat the masking and shifting for further steps. Each time you double the word-length you need one more step. Here is a 32-bit implementation:
+
+```rust
+fn popcount32(x: u32) -> u32 {
+    let m1 =  0b01010101010101010101010101010101;
+    let m2 =  0b00110011001100110011001100110011;
+    let m4 =  0b00001111000011110000111100001111;
+    let m8 =  0b00000000111111110000000011111111;
+    let m16 = 0b00000000000000001111111111111111;
+
+    let x = (x & m1) + ((x >> 1) & m1);
+    let x = (x & m2) + ((x >> 2) & m2);
+    let x = (x & m4) + ((x >> 4) & m4);
+    let x = (x & m8) + ((x >> 8) & m8);
+    let x = (x & m16) + ((x >> 16) & m16);
+    x
+}
+```
+
+Not all languages let you write numbers in binary with `0bxxxx` but then you can use hex, which is supported by all langauges I am familiar with. You probably also want to switch to hex if you are working with very long words, since the binary representation requires a 0 or 1 per bit, so for a 64-bit or 128-bit implementation your masks would get pretty long. Here is a 64-bit implementation in Rust:
+
+
+```rust
+fn popcount64(x: u64) -> u64 {
+    // Using hex instead of binary here. The words get
+    // pretty long, all of a sudden.
+    let m1 =  0x5555555555555555;
+    let m2 =  0x3333333333333333;
+    let m4 =  0x0f0f0f0f0f0f0f0f;
+    let m8 =  0x00ff00ff00ff00ff;
+    let m16 = 0x0000ffff0000ffff;
+    let m32 = 0x00000000ffffffff;
+
+    let x = (x & m1) + ((x >> 1) & m1);
+    let x = (x & m2) + ((x >> 2) & m2);
+    let x = (x & m4) + ((x >> 4) & m4);
+    let x = (x & m8) + ((x >> 8) & m8);
+    let x = (x & m16) + ((x >> 16) & m16);
+    let x = (x & m32) + ((x >> 32) & m32);
+    x
+}
+```
+
+As described, the algorithm is straightforward once you get the idea of shifting and masking to align sub-words so we can add them, but we can take some shortcuts to get a more efficient solution.
+
+For the first step, we can observe that we can get the same effect as shifting and adding by shifting and subtracting.
+
+This simpler expression
+
+```rust
+    x - (x >> 1) & m1
+```
+
+is equivalent to the first step,
+
+```rust
+    (x & m1) + ((x >> 1) & m1)
+```
+
+To see this, first consider the four different single-bit numbers we can add, `0+0`, `0+1`, `1+0`, and `1+1`, and then consider the four different two-bit words, `00`, `10`, `01`, `11` and the subtractions where you subtract the first bit in the word from the word itself: `00-0`, `10-1`, `01-0`, and `11-1`. You will find that the results are the same, `0`, `1`, `1`, and `2`, respectively.
+
+If you take the two words, `x` and `(x >> 1) & m1`, and subtract the second from the first, you are doing the subtraction version of the calculations, and you will of course end up with the same bit-word as if you had added the bits pairwise.
+
+![Subtract instead of add for first step](figs/popcount/m1-sub.png)
+
+The second step
+
+```rust
+    (x & m2) + ((x >> 2) & m2)
+```
+
+we will leae as it is. It does what it is supposed to do, and for this one we don't have a smarter way. It leaves counts for four bits of the original input sitting in consequtive four-bit sub-words.
+
+![Second step in the new version](figs/popcount/m2-shift-add-mask.png)
+
+For the third step, however, we can be smarter again.
+
+Instead of
+
+```rust
+    (x & m4) + ((x >> 4) & m4)
+```
+
+we can do this:
+
+```rust
+    (x + (x >> 4)) & m4;
+```
+
+We shift `x` so we align the four-bit words in it, and add them. When we are counting bits in four-bit words from the original word, the largest number we can have is four, and if we add two of them, we won't get more than eight, that fits into a four-bit word already. A four-bit word can count up to 15, after all. So we won't get an overflow when we are adding before we are masking, and so we don't need the initial mask. We are going to mask after, however, to only get the lower four bits in the resulting eight-bit words, but see below for a comment on that.
+
+![Third step in the new version](figs/popcount/m4-shift-add-mask.png)
+
+You will have noticed that I have shown an example with 32-bit input, since we now have counts for each 8-bit chunk of the input, we have a few more steps to do.
+
+For the next step, we simplify even more.
+
+```rust
+    (x & m8) + ((x >> 8) & m8)
+```
+
+becomes
+
+```rust
+    x + (x >> 8)
+```
+
+and here we do not even bother with masking any longer. We can get away with that because the count we have in a 32-bit word can't exceed 32, and if we from here on work with 8-bit numbers, we can count all the way up to 255. Any addition we do in eight-bit sub-words won't overflow. Not masking leaves some additional bits that we don't need, but they won't interfear with our calculations, and we can throw them away at the very end.
+
+![Fourth step in the new version](figs/popcount/m8-shift-add.png)
+
+To get the final counts for a 32-bit word, we need one more step, and that is the same we just did, but shifting by 16 bits.
+
+```rust
+    x + (x >> 16)
+```
+
+![Last step in the new version](figs/popcount/m16-shift-add.png)
+
+As long as the counts do not exceed the 255 we can count to in eight bits, there won't be any overflow, so we can still consider the eight-bit chunks independent, and after the last step, we have the count for the entire 32-bit word in the right-most eight bits. Mask it out with `0xff` (all ones for eight bits) and you have the result.
+
+The full version looks like this:
+
+```rust
+fn popcount32(x: u32) -> u32 {
+    let m1 = 0b01010101010101010101010101010101;
+    let m2 = 0b00110011001100110011001100110011;
+    let m4 = 0b00001111000011110000111100001111;
+
+    let mut x = x;
+    x -= (x >> 1) & m1;
+    x = (x & m2) + ((x >> 2) & m2);
+    x = (x + (x >> 4)) & m4;
+    x += x >> 8;
+    x += x >> 16;
+    x & 0xff
+}
+```
+
+If you are wondering why would could stop masking when we shifted eight, but had to mask when we shifted four, the answer is simply that this is where the sub-chunk slice exceeded the maximum final count. In four bits we can count from zero up to $2^4 - 1 = 15$, which would suffice for an eight-bit word, but at 16-bits we can't contain the highest count. Once we have sub-words that can contain the final count, we do not need to mask away the high bits in each chunk we are working on, because they cannot contain numbers that can overflow.
+
+When we mask, we allow ourselves to use a larger chunck of the bit-pattern as a sub-word, and that means that we can count higher. If we had stopped masking one step earlier, we would need to treat the four-bit chunks as counters from there on, and that could lead to a potential overflow.
+
+Imagine, for example, that `x` is a 16-bit word with all bits set. That mean we need to count to 16 eventually, which we cannot do in 4 bits. (We can represent 16 different values in four bits, but we need to count from zero and up, and there are 17 numbers from zero and up to and including 16).
+
+If we shifted and added as before, and did *not* mask the four high bits in eight-bit words, we would be adding as four-bit words, which isn't a problem when we add for four bits (we can represent the numbers 0, 1, 2, ..., 8 in four bits) but adding them again, where we would have to add 8+8=16, will give us an overflow. In binary, `8=1000` and adding
+
+```
+      1000
+   +  1000
+   = 10000 <- overflow
+```
+
+so one bit would leave the current four-bit sub-word and spill into the next, where it might colide with other bits, and it would be a right mess.
+
+![Overflow when stopping masking too early.](figs/popcount/m4-shift-add-mask-16-bit.png)
+
+You can stop masking once your sub-word size is large enough for the counts, but not before.
 
 
 
