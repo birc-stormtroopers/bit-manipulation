@@ -1924,6 +1924,70 @@ so one bit would leave the current four-bit sub-word and spill into the next, wh
 
 You can stop masking once your sub-word size is large enough for the counts, but not before.
 
+The algorithm you just saw is generally considered the fastest known when multiplication is slow. Generally, multiplication is slower than bit manipulation on any CPU, but for some computers, it is much slower and on others it is just a bit slower, perhaps equal to a couple of bit or addition operations. In the latter cases, there is another algorithm that can outperform the one we just saw.
+
+The algorithm starts with the same operations as those we have already seen, up until the point where we have packed counts into 8-bit sub-words (or however wide words we need to represent the final count without overflow).
+
+![Back to after the first few steps.](figs/popcount/mult-before.png)
+
+The next step is then to exploit multiplication to do all the remaing steps in one go. If you take the bit-pattern with one set bit at index 0, 8, 16, and 24 (for a 32-bit word), you have the number $y = 2^0 + 2^8 + 2^{16} + 2^{24}$ and if you multply that with
+$x$ you get
+
+$$x\cdot y = x\cdot 2^0 + x\cdot 2^8 + x\cdot 2^{16} + x\cdot 2^{24}$$
+
+where each of the terms $x\cdot 2^i$ is the same as `x << i`. So, the multiplication amounts to shifting by words of 8 bits and then adding them. Some of the shifts will overflow and fall off the left edge, but if we ignore those, the left-most 8 bits will contain the sum `(x << 0) + (x << 8) + (x << 16) + (x << 24)` which is the sum of the four eight-bit counts. Exactly what we want. Shift the left-most eight bits down to the right, and we have our answer.
+
+![Replacing remaining steps with a multiplication and a shift.](figs/popcount/mult.png)
+
+A Rust implementation can look like this:
+
+```rust
+fn popcount32(x: u32) -> u32 {
+    let m1 = 0x55555555;
+    let m2 = 0x33333333;
+    let m4 = 0x0f0f0f0f;
+    let y = 0x01010101;
+
+    let mut x = x;
+    x -= (x >> 1) & m1;
+    x = (x & m2) + ((x >> 2) & m2);
+    x = (x + (x >> 4)) & m4;
+
+    // the multiplication will overflow
+    x.wrapping_mul(y) >> (u32::BITS - 8)
+}
+```
+
+Since the multiplication will overflow, and since Rust will crash on overflows (in development mode), we have to use `x.wrapping_mul(y)` instead of `x * y`, but otherwise the code just follows the figure.
+
+For wider words, we don't have to change the function's logic. The masks are longer for the first three steps, of course, to match the wider word, but the multiplication still handles all of the additions in the final step (but you have to shift further to get the leftmost eight bits).
+
+```rust
+fn popcount64(x: u64) -> u64 {
+    let m1 = 0x5555555555555555;
+    let m2 = 0x3333333333333333;
+    let m4 = 0x0f0f0f0f0f0f0f0f;
+    let y = 0x0101010101010101;
+
+    let mut x = x;
+    x -= (x >> 1) & m1;
+    x = (x & m2) + ((x >> 2) & m2);
+    x = (x + (x >> 4)) & m4;
+
+    // the multiplication will overflow
+    x.wrapping_mul(y) >> (u64::BITS - 8)
+}
+```
+
+
+
+
+
+
+
+
+
+
 
 
 [^1]: There might be flags set in a register to tell you if any set bits were shifted out, but unless you are writing machine code, you do not have access to this, so from a high-level programming perspective the bits are lost.

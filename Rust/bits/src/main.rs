@@ -264,17 +264,18 @@ fn popcount(x: u32) -> u32 {
 */
 
 fn popcount32(x: u32) -> u32 {
-    let m1 = 0b01010101010101010101010101010101;
-    let m2 = 0b00110011001100110011001100110011;
-    let m4 = 0b00001111000011110000111100001111;
+    let m1 = 0x55555555;
+    let m2 = 0x33333333;
+    let m4 = 0x0f0f0f0f;
+    let y = 0x01010101;
 
     let mut x = x;
     x -= (x >> 1) & m1;
     x = (x & m2) + ((x >> 2) & m2);
     x = (x + (x >> 4)) & m4;
-    x += x >> 8;
-    x += x >> 16;
-    x & 0xff
+
+    // the multiplication will overflow
+    x.wrapping_mul(y) >> (u32::BITS - 8)
 }
 
 /*
@@ -292,6 +293,21 @@ fn popcount64(x: u64) -> u64 {
     let x = (x & m16) + ((x >> 16) & m16);
     let x = (x & m32) + ((x >> 32) & m32);
     x
+}
+
+fn popcount64(x: u64) -> u64 {
+    let m1 = 0x5555555555555555;
+    let m2 = 0x3333333333333333;
+    let m4 = 0x0f0f0f0f0f0f0f0f;
+    let y = 0x0101010101010101;
+
+    let mut x = x;
+    x -= (x >> 1) & m1;
+    x = (x & m2) + ((x >> 2) & m2);
+    x = (x + (x >> 4)) & m4;
+
+    // the multiplication will overflow
+    u64::wrapping_mul(x, y) >> (u64::BITS - 8)
 }
 */
 
