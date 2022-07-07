@@ -1482,7 +1482,38 @@ I don't know any computer nor language that will let you shift a negative number
 
 If you go this route, you have to treat zero as a special case. Or make sure that the input is never going to be zero.
 
-There is another approach, though, that requires a little more code, but isn't necessarily slower in practise. The code above needs to get the leading zeros from one hardware instruction and then put it in the instruction for another, but we can use slightly faster instructions where the shift amount is hardwared, where we just need a few more of them, and it won't be much slower, if slower at all.
+There is another approach, though, that requires a little more code, but isn't necessarily slower in practise. The code above needs to get the leading zeros from one hardware instruction and then put it in the instruction for another, but we can use slightly faster instructions where the shift amount is hardwired, where we just need a few more of them, and it won't be much slower, if slower at all.
+
+The idea is to first construct a word that has zeros to the left of the leftmost set bit in `x`, and ones to the right of it. We do this by shifting and OR'ing. If you take `x` and shift it right one, all bits move one to the right, including the leftmost. If you then OR `x` with `x >> 1`, none of the bits to the left of the leftmost are set, because there are no set bits in `x` or `x >> 1` there, the leftmost bit is set in `x` so it will still be set, and the bit to the right of it is set in `x >> 1`, so it will also be set. We don't know about the rest, but we don't care either at this point. We have a new word, `x2`, where we know that two bits from the leftmost are set, and that is all we need.
+
+![First step in computing the leftmost](figs/leftmost/first-step.png)
+
+For the next step, we do the same trick again, but this time we shift by two. That moves the two leftmost set bits in `x2` two to the right, so when we OR, we get the first four bits from the leftmost set.
+
+![Second step in computing the leftmost](figs/leftmost/second-step.png)
+
+We now have `x4` with the first four bits set, and we use the trick again, but this time shifting by four, to get `x8` with the first eight bits set. In the example in the figures, `x8` has all the bits to the right of the leftmost set by now, but in general we do not get this; in general we only know that the first eight of them are set. We need one more step, shifting `x8` by eight and OR'ing, to get `x16` where we do know that all the bits we want are set.
+
+![Last steps in computing the leftmost](figs/leftmost/third-step.png)
+
+If we know that at at least 16 bits to the right of the leftmost are set, then we know that all of them are in a 16-bit word, as in the example. If we had an eight bit word to begin with, we could already stop at `x8`, but if we have a 32-bit word we would need one more step, to get `x32`, and with a 64-bit word we would need yet another to get `x64`. Each time we double the word size, we need one more step, so the algorithm's running time increases as the logarithm of the word size, which is typically $\log\log n$ of the data we work with.
+
+We need one more step to get the word we are really interested in; the word with only the leftmost bit set. To get it, notice that the only difference between `x16` and `x16 >> 1` is the leftmost set bit in `x`. If we XOR the two words, we get a word where all the equal bits (zero and zero or one and one) are set to zero and the different bits (of which there is only one) are set to one. So `x16 ^ (x16 >> 1)` is the result we want.
+
+In Rust, we can implement the idea like this:
+
+```rust
+fn leftmost16(x: u16) -> u16 {
+    let mut x = x;
+    x |= x >> 1;
+    x |= x >> 2;
+    x |= x >> 4;
+    x |= x >> 8;
+    x ^ (x >> 1)
+}
+```
+
+If we had an eight-bit word we could stop one step earlier:
 
 ```rust
 fn leftmost8(x: u8) -> u8 {
@@ -1492,16 +1523,11 @@ fn leftmost8(x: u8) -> u8 {
     x |= x >> 4;
     x ^ (x >> 1)
 }
+```
 
-fn leftmost16(x: u16) -> u16 {
-    let mut x = x;
-    x |= x >> 1;
-    x |= x >> 2;
-    x |= x >> 4;
-    x |= x >> 8;
-    x ^ (x >> 1)
-}
+or with a 32-bit word we would need one step more:
 
+```rust
 fn leftmost32(x: u32) -> u32 {
     let mut x = x;
     x |= x >> 1;
@@ -1511,7 +1537,11 @@ fn leftmost32(x: u32) -> u32 {
     x |= x >> 16;
     x ^ (x >> 1)
 }
+```
 
+I won't generally implement generic solutions in this note, as the generics syntax might be unfamiliar with you if you do not speak Rust, but a version can look like this:
+
+```rust
 use core::ops::*;
 
 fn leftmost<W>(x: W) -> W
@@ -1529,7 +1559,16 @@ where
 }
 ```
 
-Although there is a loop in the source code, which would in normal circumstances means the compiled code would have a loop as well, we are here looping a constant number of times, the constant is known at compiler time, and so [the compiler can unroll the loop](https://godbolt.org/z/6n78qTh4q) to produce the same kind of code as if we wrote the instructions using copy and paste.
+It is the
+
+```rust
+    W: Shr<u8, Output = W> + BitOr<Output = W> + BitOrAssign + BitXor<Output = W> + Copy,
+```
+
+code I was mainly thinking of as add if you are not familiar with Rust. It specifies that `W` is a type that can shift right, use bit-or `|` and bit-or assign `|=`, XOR, `^` and can be copied. It's messy, and you don't need to worry about it if you are not programming in Rust.
+
+I just wanted to show a version to show that we don't need to implement the algorithm for each word size to get an efficient solution.  Although there is a loop in the source code, which would in normal circumstances means the compiled code would have a loop as well, we are here looping a constant number of times, the constant is known at compiler time, and so [the compiler can unroll the loop](https://godbolt.org/z/6n78qTh4q) to produce the same kind of code as if we wrote the instructions using copy and paste.
+
 
 #### Base two logarithms
 
