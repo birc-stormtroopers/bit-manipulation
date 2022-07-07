@@ -1658,43 +1658,7 @@ fn rank_mask(i: u32) -> u32 {
 
 Then we can always treat zero as a special case.
 
-If you are into [branchless programming](https://en.wikipedia.org/wiki/Branch_(computer_science)#Branch-free_code) you might not want to use `if`-statements to handle special cases, but with the bit tricks we know, we can do that as well.
-
-You could do something like this:
-
-```rust
-fn rank_mask(i: u32) -> u32 {
-    // We allow indexing on bits 0, 1, ..., 32 (inclusive).
-    // We can't shift 32, so we use mod to wrap around 32, so both
-    // zero and 32 will be shifted by zero, but then we use a mask
-    // that is zero for zero and all ones for 32.
-    let shift_by = (u32::BITS - i) % 32;  // modulo powers of two is just bit masking
-    let mask = -((i != 0) as i32) as u32; // zeros or ones depending on i
-    mask >> shift_by
-}
-```
-
-or like this:
-
-```rust
-fn rank_mask(i: u32) -> u32 {
-    // Shift a bit up to position i-1 and get that bit and
-    // the bits to the right of it. Use % to avoid overflow.
-    let shift = (i as i32 - 1) as u32 % u32::BITS;
-    let bit = 1 << shift; // first bit we want
-    let mask = bit | (bit - 1); // plus those to the right
-
-    // A mask that is all zeros if i is zero and all ones
-    // if i is non-zero
-    let zero_mask = -((i != 0) as i32) as u32;
-
-    mask & zero_mask
-}
-```
-
-and you can probably think of other solutions (and it would be great exercise).
-
-(Of course, if we could just shift by the word size and have the result be all zeros, then things would be even simpler, but that is generally not supported by the hardware).
+The reason we need to treat zero as a special case is that we are not allowed to shift by the word width or more on most systems, and if we called `rank_mask()` with zero, we would be shifting by `32 - 0 = 32`. 
 
 In Rust, though, we have a checked right-shift that we can use. With it, we can either get the normal result, or if there is an overflow, get a value of our choosing. It could look like this:
 
@@ -1709,6 +1673,114 @@ If `0 < i < 32`, `u32::BITS - i` is a valid amount to shift, so `checked_shr()` 
 If `i` is zero, `u32::BITS - i` is 32 and we have an overflow, and `checked_shr()` returns `None`, but then `unwrap_or()` lets us pick a value, which is zero here.
 
 If `i > 32` I don't care; there will be an arithmetic overflow i `u32::BITS - i` and it will serve the programmer who calls the function with invalid arguments just right.
+
+This involves [more instructions, however](https://godbolt.org/z/bz7ae4WcE), but not a lot if the system really doesn't allow you to shift by 32 bits on a 32 bit word.
+
+The `wrapping_shr()` function will also allow you to shift by an amount larger than the word size, but not quite the way you want it. The function
+
+```rust
+fn rank_mask(i: u32) -> u32 {
+    u32::wrapping_shr(0xffffffff, u32::BITS - i)
+}
+```
+
+will remove extra bits from `u32::BITS - i` to get the value down in the valid range (`0..=31`) and then perform the shift.
+
+You won't necessarily see this in the generated assembly code, because the hardware might be doing exactly the same (the `x86_64` architecture does), so the generated code might not be doing any masking, but leaving it to the hardware. The original `rank_mask()` and this `wrapping_shr()` version generates exactly the same assembly on my hardware; the second just isn't considered an overflow by Rust.
+
+And, of course, it doesn't work. The first version we had worked for indices `1..=32`, but by masking the relevant bits, we consider 0 and 32 the same. Masking here amounts to using `(u32::BITS - i) % 32` to shift (we mask with five bits, but that is the same as taking the remainder with respect to 32), and `(32 - 0) % 32 = (32 - 32) % 32 = 0 % 32`. If we index with zero, we get the same mask as if we index with 32; if we wan't none of the bits, we get all of them.
+
+An easy solution is to change the mask, and let that capture if we want zero or all. The mask we use now is all ones, but if the index was zero, we could make the mask all zeros as well.
+
+```rust
+fn rank_mask(i: u32) -> u32 {
+    let mask = -((i != 0) as i32) as u32;
+    mask.wrapping_shr(u32::BITS - i)
+}
+```
+
+The expression `-((i != 0) as i32) as u32` is a little ugly, but mostly because of the type casts. It amounts to `-(i != 0)`, where `i != 0` is zero if `i` is zero, in which case `-(i != 0)` is zero, or one if `i` is not zero, in which case we get `-1`, which, as you recall from two's-complement representations, is the word with all ones, or `0xffffffff`. So either we shift mask of all zeros, to get all zeros, which happens when `i` is zero, or we shift the mask of all ones as we did before for indices `1..=32`.
+
+The generated code for this `rank_mask()` is almost the same as for the first we had. On `x86_64` the first is translated to
+
+```asm
+rank_mask:
+        mov     ecx, edi    ; puts the argument (i) into register ecx
+        neg     cl          ; flip sign for i: -i; i in a byte (cl is low byte of ecx)
+        mov     eax, -1     ; put mask (-1 == 0xffffffff) into register eax
+        shr     eax, cl     ; shift eax by cl (mask by i)
+        ret                 ; return (eax is always what we return)
+```
+
+and the second to
+
+```asm
+rank_mask_mask:
+        mov     ecx, edi    ; puts the argument into register acx
+        neg     ecx         ; flip sign for i: -i;
+        sbb     eax, eax    ; sets eax to 0 or -1 depending on previous instruction
+        shr     eax, cl     ; shift eax by cl (mask by i)
+        ret                 ; return (eax is always what we return)
+```
+
+As you can see, we have almost the same instructions (a `mov` is replaced by an `sbb`) and while it is notoriously difficult to figure out exactly how fast or slow instructions are, especially because it can depend on their context, when you `mov` (move) a constant (here -1) it is very fast, and when you use `sbb` (subtract with borrow) the way we are using it, it is very fast as well.
+
+Both versions will first move the value in the `edi` register into the `ecx` register. By convention, the first (and in this case only) integer argument to a function will be passed in the `rdi` register. You don't see `rdi` here, but `edi` refers to the low 32 bits in `rdi` (which is a 64 bit register). So the first `mov ecx, edi` just puts the argument in `ecx`. The compiler probably moves the input to `ecx` because some calling conventions require a function to restore `edi` after use, and I am not entirely sure if I compiled under that convention. Otherwise, we could have worked on `edi` directly. In any case, we now have our input, `i`, sitting in register `ecx` (32-bits of `rcx`; we would be using `rcx` if we were using 64-bit words).
+
+Next, we flip the sign of `i` using the instruction `neg cl` or `neg ecx` (change the sign of the value in the register). The reason the compiler just flips the sign of `i` is that we are in effect working modulus 32 when we shift a 32-bit word, and `32 - i == -i (mod 32)`. It doesn't have to do any subtraction when the modulus arithmetic does it for it anyway.
+
+In the first case, we use register `cl`, but this is just the low 8 bits of `ecx` (like `ecx` is the low 32 bits of `rcx`), and we can't be shifting with a value greater 31, so any relevant bits will be in the low byte. The second function changes the sign for the entire register. This is because the expression for making the sign checks whether `i` is zero or not, but not whether the lower eight bits are zero or not. So we have asked for a maks that depends on whether the entirety of `i` is zero, and we need to look at the entire register. (We don't really, but that is what we asked for).
+
+The result is the same if we only consider this register, in both cases we have `-i` there, but we get a side-effect from `neg` that we use in the second function. When you use `neg`, a "carry flag" (CF) is set on the CPU, and it will be zero if the argument it gets is zero, and 1 otherwise. So by doing `neg ecx` we have *both* changed the flag of `-i` *and* checked if it was zero (with the result of the check sitting in this CF).
+
+Next in the first function we move -1, the word with all ones, into register `eax`. In the second function, we use the `sbb` instruction. That is not a simple instruction, but what it does when we use it with the same register as its two arguments, `sbb eax, eax`, is that it checks CF and puts zero in the register if CF is zero, and all ones if CF is non-zero. This is where we construct the mask, either `0x00000000` or `0xffffffff` depending on `i`, and we put the mask into `eax`.
+
+All that is left to do now is shifting the mask in `eax` with the value in `cl` (it is the low byte in `ecx`, and actually we only look at the low five bits to shift by a value up to 32).
+
+If you don't have an analogue to `wrapping_shr()` in your language, you can easily implement the same functionality with a remainder operator
+
+```rust
+fn rank_mask_mask_mod(i: u32) -> u32 {
+    let mask = -((i != 0) as i32) as u32;
+    mask >> ((u32::BITS - i) % 32)
+}
+```
+
+This function generates exactly the same code as the `wrapping_shr()` with my compiler. Generally, division and modulus are slow operations, but when we use a constant, and that constant is a power of two, it can always be reduced to a mask (here of the last five bits, since $2^5 = 32$), and your compiler can figure that out, and maybe do some other tricks to speed it up even further.
+
+If you really hate this kind of bit hacking and just want to use an `if`-statement to deal with the special case, don't worry. You can of course do that:
+
+```rust
+pub fn rank_mask_if(i: u32) -> u32 {
+    if (i == 0) { 0 } else { 0xffffffff >> (u32::BITS - i) }
+}
+```
+
+Sometimes, branches (such as `if-else`) can slow down computations, because branch prediction can go wrong, but modern CPUs often have conditional move instructions and compilers are good at using them. This function isn't much worse than the other ones.
+
+```asm
+rank_mask_if:
+        ; this bit is the else part and exactly the same as the original
+        ; rank_mask that doesn't handle zero. You end up with the result
+        ; in eax (but the result is wrong if i is zero)
+        mov     ecx, edi
+        neg     cl
+        mov     eax, -1
+        shr     eax, cl
+
+        ; then we test if the input, still in edi, is zero. If it is,
+        ; we can't use what we just computed in eax, so we need to
+        ; replace it with zero.
+        test    edi, edi   ; is edi zero?
+        cmove   eax, edi   ; move if the test said yes, otherwise don't
+
+        ; and then we are done
+        ret
+```
+
+It is two more instructions, and they are fast instructions, so no-one will ever notice the difference.
+
+
 
 Anyway, back to rank. If we can mask, then a rank that counts the number of set bits before index `i` is straightforward:
 

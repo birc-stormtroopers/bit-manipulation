@@ -340,10 +340,12 @@ fn rank_mask(i: u32) -> u32 {
 */
 
 fn rank_mask(i: u32) -> u32 {
-    0xffffffffu32.checked_shr(u32::BITS - i).unwrap_or(0)
+    let mask = -((i != 0) as i32) as u32;
+    mask.wrapping_shr(u32::BITS - i)
 }
 
 fn rank(w: u32, i: u32) -> u32 {
+    println!("mask: {:032b}", rank_mask(i));
     (w & rank_mask(i)).count_ones()
 }
 
