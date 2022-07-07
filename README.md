@@ -1623,7 +1623,8 @@ fn log2_up(x: u32) -> Option<u32> {
 
 If you have a word, `w`, and want the number of set bits in that word, that is known as [popcount or Hamming weight](https://en.wikipedia.org/wiki/Hamming_weight). If you are wondering why that would ever be interesting, one application is so-called rank queries:
 
-    Given a sequence x, a key k, and an index i, rank(x,k,i) is the number of occurrences of k at any index j < k.
+    Given a sequence x, a key k, and an index i,
+    rank(x,k,i) is the number of occurrences of k at any index j < k.
 
 For example, if `x` is a string and the key is some letter, `a`, `rank(x,a,i)` is the number of times we see an `a` before index `i`. It might not be immidiately obvious why this is something we would be interested in knowing, but you will have to take my word for it, or take the GSA class.
 
@@ -1708,7 +1709,7 @@ rank_mask:
         mov     ecx, edi    ; puts the argument (i) into register ecx
         neg     cl          ; flip sign for i: -i; i in a byte (cl is low byte of ecx)
         mov     eax, -1     ; put mask (-1 == 0xffffffff) into register eax
-        shr     eax, cl     ; shift eax by cl (mask by i)
+        shr     eax, cl     ; shift eax by cl (mask >> i)
         ret                 ; return (eax is always what we return)
 ```
 
@@ -1719,7 +1720,7 @@ rank_mask_mask:
         mov     ecx, edi    ; puts the argument into register acx
         neg     ecx         ; flip sign for i: -i;
         sbb     eax, eax    ; sets eax to 0 or -1 depending on previous instruction
-        shr     eax, cl     ; shift eax by cl (mask by i)
+        shr     eax, cl     ; shift eax by cl (mask >> i)
         ret                 ; return (eax is always what we return)
 ```
 
