@@ -349,6 +349,50 @@ fn rank(w: u32, i: u32) -> u32 {
     (w & rank_mask(i)).count_ones()
 }
 
+/*
+fn swap(x: &mut u32, y: &mut u32) {
+    *x ^= *y;
+    *y ^= *x;
+    *x ^= *y;
+}
+*/
+
+fn swap(x: &mut u32, y: &mut u32) {
+    let a = *x ^ *y;
+    let b = *y ^ a;
+    let c = a ^ b;
+    *y = b;
+    *x = c;
+}
+
+// XOR up to and including n
+fn xor_to_n_naive(n: u32) -> u32 {
+    let mut w = 0;
+    for a in 0..=n {
+        w ^= a;
+    }
+    w
+}
+
+// XOR up to and including n
+fn xor_to_n(n: u32) -> u32 {
+    match n & 0b11 {
+        0b00 => n,
+        0b01 => 1,
+        0b10 => n + 1,
+        0b11 => 0,
+        _ => panic!("Can't happen!"),
+    }
+}
+
+fn find_missing(x: &[u32]) -> u32 {
+    let mut w = xor_to_n(x.len() as u32);
+    for a in x {
+        w ^= a;
+    }
+    w
+}
+
 fn main() {
     basic_operations();
     unsigned_arithmethic();
@@ -451,4 +495,16 @@ fn main() {
             i.count_ones()
         );
     }
+
+    let mut x = 42;
+    let mut y = 13;
+    println!("before swap: {} {}", x, y);
+    swap(&mut x, &mut y);
+    println!("after swap: {} {}", x, y);
+
+    for i in 0..120 {
+        assert!(xor_to_n(i) == xor_to_n_naive(i));
+    }
+
+    println!("missing {}", find_missing(&vec![1, 0, 2, 4]));
 }

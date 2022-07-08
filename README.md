@@ -2092,11 +2092,267 @@ fn popcount64(x: u64) -> u64 {
 ```
 
 
+### XOR tricks
+
+The XOR operator might be the least familiar of those we use. You sometimes encounter the "either-or" phrase in English, but for logical reasoning, we use NOT, AND, OR much more frequently. However, when manipulating bits, the XOR operator can do amazing things.
+
+We have already exploited this several times above, especially the property that if we apply XOR, then bits that are the same are turned into zero while bits that differ are turned into one:
+
+```
+        b ^  b = 0
+        b ^ !b = 1
+```
+
+This rule is for single bits, but for a full word, `x`, it means that
+
+```
+    x ^ x = 0
+```
+
+whatever `x` may be. At each bit-position, `x` is obviously equal to itself, so all the bits are sent to zero.
+
+In assembly, this is often used to set a register to zero
+
+```asm
+    xor     reg, reg    ; set reg to zero
+```
+
+The same bit-rule tells us that
+
+```
+    x ^ 0 = x
+```
+
+because for all the zero-bits in `x` we XOR two identical bits and get zero, and for all the 1 bits, the 1 from `x` and the 0 from `0` differ, so there we get a 1-bit. Thus, we end up with `x` again.
+
+Like AND and OR, XOR is commutative
+
+```
+    x ^ y = y ^ x
+```
+
+and associative
+
+```
+    x ^ (y ^ z) = (x ^ y) ^ z
+```
+
+This is used for an unbreakable crypto technique called the [one-time pad](https://en.wikipedia.org/wiki/One-time_pad). If you have a secret, `x`, and a random string of bits, `y`, then encode the secret as `x ^ y`. If the bits are random in `y`, then the bits in `x` are randomly flipped, and there is no information about the original `x` left in `x ^ y`.
+
+Unless, of course, you know `y`. If you know `y`, then you can get `x` by XOR'ing the secret `x ^ y` with `y`:
+
+```
+    (x ^ y) ^ y = x ^ (y ^ y) = x ^ 0 = x
+```
+
+This encryption is unbreakable, but we don't use it much. The reason is that `y` has to be random and a secret, so if I use it to encrypt a message to you, you have no way of constructing `y` (which is the whole point), so I would have to send `y` to you while ensuring that no-one can ever catch it, which is as difficult as sending `x` itself. Furthermore, if we start reusing the same `y` for multiple messages, then we will be leaking information about it, and the strong guarantee goes away. It is really only useful if you have a secret way of exchanging random bits, like [quantum crypto](https://en.wikipedia.org/wiki/Quantum_cryptography), or if you can transport the secret bits ahead of time through some other means, like armed men wearing suits and sunglasses. For e-commerse, it isn't useful. But it is a cool application of XOR.
+
+But let's see some more...
+
+#### Inplace swapping
+
+Consider a very simple operation: swapping the values in two variables. A simple function that swaps two 32-bit integers can look like this:
+
+```rust
+fn swap(x: &mut u32, y: &mut u32) {
+    let tmp = *x;
+    *x = *y;
+    *y = tmp;
+}
+```
+
+We could use it like this:
+
+```rust
+    let mut x = 42;
+    let mut y = 13;
+    // here x is 42 and y is 13
+    swap(&mut x, &mut y);
+    // here x is 13 and y is 42
+```
+
+The `swap()` function is straightforward, but to swap the two values we need a temporary variable. It doesn't take up much memory, it is only 32 bits after all, but it takes up a whole register at the CPU level, and in case we had much larger values to swap, adding a third to the memory usage could become a problem.
+
+This XOR-based solution swaps the two values as well:
+
+```rust
+fn swap(x: &mut u32, y: &mut u32) {
+    *x ^= *y;
+    *y ^= *x;
+    *x ^= *y;
+}
+```
+
+Wait what? What kind of wizardry is this?
+
+To understand what is happening, let us add some temporary variables to hold parts of the calculation. That defeats the purpose of not using extra space, of course, but it is only to decipher what is happening.
+
+```rust
+fn swap(x: &mut u32, y: &mut u32) {
+    let a = *x ^ *y;
+    let b = *y ^ a;
+    let c = a ^ b;
+    *y = b;
+    *x = c;
+}
+```
+
+We see that we set `y` to
+
+```
+    y := b = y ^ a = y ^ x ^ y
+```
+
+and `x` to
+
+```
+    x := c = a ^ b = (x ^ y) ^ (y ^ a) = (x ^ y) ^ (y ^ (x ^ y))
+```
+
+If we rearrange the value for `y` we get
+
+```
+    y := y ^ x ^ y = x ^ (y ^ y) = x ^ 0 = x
+```
+
+and if we rearrange the value we assign to `x` we get
+
+```
+    x := x ^ y ^ y ^ x ^ y = y ^ (y ^ y) ^ (x ^ x) = y
+```
+
+Generally, if you have any sequence of words XOR'ed together, you can remove those that appear an even number of times--they will cancel out--and reduce to a single occurrence any those that appear an odd number of times--because the rest will cancel out. This is what we see here; for `y` we have constructed a sequence of XOR with two `y` and one `x`, so the `y` cancel and leave one `x`, while for `x` we have a sequence with two `x` and three `y` which reduces to zero `x` and one `y`.
 
 
+#### Find missing values
 
+I freely admit that the next trick is not something I have ever had a use for, except for exercises, but it is neat so here you get it.
 
+Assume that you have an array, `x`, of the numbers from zero to $n-1$, except that exactly one value is missing.
+That is, `x` is some permutation of the numbers 0, 1, 2, ..., $n - 1$, excepth that one of the numbers is missing (and thus the length of `x` is
+$n - 1$ instead of
+$n$).
 
+Your task is the find the missing value.
+
+One approach is to sort the array (you can do this in linear time with a bucket or radix sort because the numbers are from zero to $n-1$) and then use binary search to find the missing value in logarithmic time. That is an exercise I give in CTiB. But there is an even smarter solution when we already know the values that are supposed to be there.
+
+We don't know the order of the elements in `x`, but let's just imagine that we had permuted them so the are $0, 1, 2, \ldots, i-1, i+1, \ldots n-1$, where
+$i$ is the missing value. If we took all the numbers from 0 to
+$n-1$ and prepended them we would have the sequence
+
+$$0, 1, 2, \ldots i-1, i, i+1, \ldots n-1, 0, 1, 2, \ldots i-1, i+1, \ldots n-1.$$
+
+Now XOR these together
+
+$$0 \oplus 1 \oplus 2 \oplus \cdots \oplus i-1 \oplus i \oplus i+1 \oplus \cdots \oplus n-1 \oplus 0 \oplus 1 \oplus 2 \oplus \ldots \oplus i-1 \oplus i+1 \oplus \ldots \oplus n-1.$$
+
+(The symbol $\oplus$ is the math-symbol for XOR).
+
+Since XOR is commutative, we don't have to sort `x` to get the same result, so we could imagine that we did without spending time on actually doing it.
+
+This is a sequence of XOR operations where all numbers *except $i$* appears twice. All the numbers that appear twice cancel out in this sequence, and we are left with
+$i$.
+
+$$i = \left(\bigoplus_{j=0}^{n-1} j \right) \oplus \left( \bigoplus_{j=0}^{n-2} \mathtt{x}[j] \right)$$
+
+In Rust, this idea looks like this:
+
+```rust
+fn find_missing(x: &[u32]) -> u32 {
+    let n = x.len() as u32 + 1;
+    let mut w = 0;
+    for a in 0..n {
+        w ^= a;
+    }
+    for a in x {
+        w ^= a;
+    }
+    w
+}
+```
+
+You might be wondering if we couldn't get the result of the initial sequence of XOR operations faster than $O(n)$. After all, if we were summing the numbers from zero to
+$n$ we know that it is just
+
+$$\sum_{i=0}^n i = \frac{n(n+1)}{2}$$
+
+so shouldn't there be something similar for XOR
+
+$$\bigoplus_{i=0}^n i = ?$$
+
+Yes, there is, although not quite as neat. It turns out that $n\mod 4$ determines the result:
+
+$$\bigoplus_{i=0}^n i = \begin{cases}
+    n   & n \mod 4 = 0\\
+    1   & n \mod 4 = 1\\
+    n+1 & n \mod 4 = 2\\
+    0   & n \mod 4 = 3
+\end{cases}$$
+
+This formula is, I admit, not obvious, but consider a block of four consecutive words, starting at a multiple of four (i.e. the first is zero modulus four) . I will claim, and shortly after prove, that all the previous numbers, when XOR'ed together, have cancelled out and are zero. Then, obviously, the first word in our block, $x$, will be XOR'ed with zero, and the result is
+$x$.
+
+We analyse the rest by splitting the words in the two right-most bits, that determine what the value is modulus four, and the leftmost bits. The leftmost bits will cancel out at the odd offsets (they cancel for $x \oplus (x+1)$, then are back for
+$x+2$ and will be cancelled again by
+$x+3$). The rightmost bits will count as
+
+$$00 \oplus 01 = 01$$
+$$00 \oplus 01 \oplus 10 = 11$$
+$$00 \oplus 01 \oplus 10 \oplus 11 = 0$$
+
+So, if all the previous bits, before this block, are cancelled out, the accumulated XOR for $x$ results in $0 \oplus x = x$. So if
+$n$ is this
+$x$:
+
+$$\bigoplus_{i=0}^n i = 0\oplus n = n.$$
+
+For the next word, $x+1$, the left bits will cancel out and we only have the two rightmost bits, that are $01$, so $x \oplus (x+1) = 1$ and if
+$n = x+1$ we have
+
+$$\bigoplus_{i=0}^n i = 0\oplus x \oplus (x+1) = 1.$$
+
+With the third word, $x+2$, the leftmost bits are back again and the rigthmost bits, accumulated, are
+$11$. So
+$x \oplus (x+1) \oplus (x+2) = x + 3$ (it is the bit pattern
+$x$ except that the last two bits are set instead of zero). So, if
+$n = x+3$ we have
+
+$$\bigoplus_{i=0}^n i = 0\oplus x \oplus (x+1) \oplus (x+2) = x + 3 = n + 1.$$
+
+For the last word, $x+3$, the leftmost bits have cancelled again, and now so have the rightmost, and the result is zero.
+Thus, with $n = x+3$ we have
+
+$$\bigoplus_{i=0}^n i = 0\oplus x \oplus (x+1) \oplus (x+2) \oplus (x+3) = 0.$$
+
+![Accumulated XOR](figs/xor.png)
+
+The last equation also tells us that, when we assumed that all the previous bit patterns before $x$ had cancelled out, then they would be back to zero after the four words in the block. In other words, as long as we start in a block where all the bits have cancelled, we will have cancelled all the bits back to zero at the end of the block. Well, we start counting at zero, where all the bits are definitely zero, so that will always be the case. Thus endeth the lesson. (Or *quod erat demonstrandum* if you are into Latin).
+
+Implemented in Rust, it looks like this:
+
+```rust
+// XOR up to and including n
+fn xor_to_n(n: u32) -> u32 {
+    match n & 0b11 {
+        0b00 => n,
+        0b01 => 1,
+        0b10 => n + 1,
+        0b11 => 0,
+        _ => panic!("Can't happen!"),
+    }
+}
+
+fn find_missing(x: &[u32]) -> u32 {
+    let mut w = xor_to_n(x.len() as u32);
+    for a in x {
+        w ^= a;
+    }
+    w
+}
+```
+
+The `match` statement picks the outcomes of the expression `n & 0b11` which picks the last two bits. The `panic!(...)` bit is there because Rust requires that we catch all possible outcomes based on the type we use, which is `u32` here, and it doesn't figure out that when we look at only the last two bits we have already captured them.
 
 
 
