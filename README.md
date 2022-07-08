@@ -2293,7 +2293,11 @@ $$\bigoplus_{i=0}^n i = \begin{cases}
 This formula is, I admit, not obvious, but consider a block of four consecutive words, starting at a multiple of four (i.e. the first is zero modulus four) . I will claim, and shortly after prove, that all the previous numbers, when XOR'ed together, have cancelled out and are zero. Then, obviously, the first word in our block, $x$, will be XOR'ed with zero, and the result is
 $x$.
 
-We analyse the rest by splitting the words in the two right-most bits, that determine what the value is modulus four, and the leftmost bits. The leftmost bits will cancel out at the odd offsets (they cancel for $x \oplus (x+1)$, then are back for
+We analyse the rest by splitting the words in the two right-most bits, that determine what the value is modulus four, and the leftmost bits.
+
+![Accumulated XOR](figs/xor.png)
+
+The leftmost bits will cancel out at the odd offsets (they cancel for $x \oplus (x+1)$, then are back for
 $x+2$ and will be cancelled again by
 $x+3$). The rightmost bits will count as
 
@@ -2329,7 +2333,6 @@ Thus, with $n = x+3$ we have
 
 $$\bigoplus_{i=0}^n i = 0\oplus x \oplus (x+1) \oplus (x+2) \oplus (x+3) = 0.$$
 
-![Accumulated XOR](figs/xor.png)
 
 The last equation also tells us that, when we assumed that all the previous bit patterns before $x$ had cancelled out, then they would be back to zero after the four words in the block. In other words, as long as we start in a block where all the bits have cancelled, we will have cancelled all the bits back to zero at the end of the block. Well, we start counting at zero, where all the bits are definitely zero, so that will always be the case. Thus endeth the lesson. (Or *quod erat demonstrandum* if you are into Latin).
 
