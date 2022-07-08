@@ -2361,7 +2361,19 @@ fn find_missing(x: &[u32]) -> u32 {
 
 The `match` statement picks the outcomes of the expression `n & 0b11` which picks the last two bits. The `panic!(...)` bit is there because Rust requires that we catch all possible outcomes based on the type we use, which is `u32` here, and it doesn't figure out that when we look at only the last two bits we have already captured them.
 
+You can use this trick for similar problems. Say, for example, you have a list of elements where exactly one is duplicated. If you XOR through it, it will disappear while the others won't, but if you first build the accumulated XOR, then all the *singletons* disappear, and the duplicate will now appear three times, which reduces to one time.
 
+If you want to find the single element that is not duplicated in a list of otherwise duplicated elements, you don't even need the accumulated XOR. You can just XOR through the entire list
+
+```rust
+fn find_singleton(x: &[u32]) -> u32 {
+    x.iter().fold(0, |acc, w| acc ^ w)
+}
+```
+
+
+
+and all the duplicates will disappear, leaving only the singleton.
 
 
 

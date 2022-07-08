@@ -393,6 +393,10 @@ fn find_missing(x: &[u32]) -> u32 {
     w
 }
 
+fn find_non_dup(x: &[u32]) -> u32 {
+    x.iter().fold(0, |acc, w| acc ^ w)
+}
+
 fn main() {
     basic_operations();
     unsigned_arithmethic();
@@ -507,4 +511,5 @@ fn main() {
     }
 
     println!("missing {}", find_missing(&vec![1, 0, 2, 4]));
+    println!("non-dup {}", find_non_dup(&vec![1, 0, 1, 0, 2]));
 }
