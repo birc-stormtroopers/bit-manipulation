@@ -2298,7 +2298,9 @@ $x+2$ and will be cancelled again by
 $x+3$). The rightmost bits will count as
 
 $$00 \oplus 01 = 01$$
+
 $$00 \oplus 01 \oplus 10 = 11$$
+
 $$00 \oplus 01 \oplus 10 \oplus 11 = 0$$
 
 So, if all the previous bits, before this block, are cancelled out, the accumulated XOR for $x$ results in $0 \oplus x = x$. So if
