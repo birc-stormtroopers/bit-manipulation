@@ -2295,7 +2295,7 @@ $x$.
 
 We analyse the rest by splitting the words in the two right-most bits, that determine what the value is modulus four, and the leftmost bits.
 
-![Accumulated XOR](figs/xor.png)
+![Accumulated XOR](figs/xor/xor-range.png)
 
 The leftmost bits will cancel out at the odd offsets (they cancel for $x \oplus (x+1)$, then are back for
 $x+2$ and will be cancelled again by
@@ -2371,9 +2371,39 @@ fn find_singleton(x: &[u32]) -> u32 {
 }
 ```
 
-
+Of course, the elements we are working with do not have to be the numbers from zero up to $n-1$. Any elements will do, as long as we can work out their accumulated XOR (for the cases where we need that).
 
 and all the duplicates will disappear, leaving only the singleton.
+
+
+
+#### Packing information
+
+I don't know what to call this section, but my other idea "potential" is even less meaningful... anyway, `x ^ y` has the potential of becoming both `x` and `y`, if you just provide the other value:
+
+```
+    (x ^ y) ^ x = y
+    (x ^ y) ^ y = x
+```
+
+You can exploit this in situation where you need two different values, but you always have one of the available when you need the other.
+
+An exampl is doubly linked lists. There, we usually have two pointers in each link, one to the previous and one to the next link.
+
+![Doubly linked list](figs/xor/linked-list.png)
+
+But when we traverse a list, we know the address of the link we are coming from, so we have one piece of information, and we can use that to get the next, without storing both. If, instead of storing a `prev` and `next` pointer, we have a `prext` value that is the XOR of the two, we use one less word per link. In the beginning and end of the list, we need a proper pointer to move to the next link, because we won't have something to XOR with, (but this is actually a special case of the general case if you counsider the "coming from address" as zero at the ends).
+
+![Doubly linked list with smaller memory footprint](figs/xor/xor-linked-list.png)
+
+If in cell `A` we want to go to `B`, we use `A.prext` (or `A.prext ^ from` where `from = 0` if you prefer). That takes us to `B`, and if we remember the address of `A` in a variable, `from`, we can get the address of `C` from `B.prext` as `C = B.prext ^ from = (A ^ C) ^ A = C`. The same works in the other direction. If we are coming from `C` (and have `C`'s address stored in `from`) we can get the previous link as `A = B.prext ^ from = (A ^ C) ^ C = A`.
+
+I won't show a Rust implementation because doubly linked lists are notoriously difficult to implement with Rust's ownership rules and the example would drown in all the code necessary to just have a list, but I hope you get the idea.
+
+Of course, if you find yourself in the situation where you have doubly linked lists and you can't afford two pointers, you have probably left The True Path of efficient programming, but there are cases where you need so save space and this trick does eliminate half the space usage in some cases.
+
+
+
 
 
 
@@ -2390,3 +2420,4 @@ and all the duplicates will disappear, leaving only the singleton.
 [^6]: This is probably the one most annoying part about working with bit patterns. If you could shift with offsets from zero up to *and including* the word size, thousands of problems would be simpler and not need to deal with special cases. But alas, that is not how the world works.
 
 [^7]: If you are reading this, chances are that you are most familiar with Python. There, since 3.10, you have [`bit_count()`](https://docs.python.org/3/library/stdtypes.html#int.bit_count).
+
