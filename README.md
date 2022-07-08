@@ -2297,11 +2297,13 @@ We analyse the rest by splitting the words in the two right-most bits, that dete
 $x+2$ and will be cancelled again by
 $x+3$). The rightmost bits will count as
 
+$$00 = 00$$
+
 $$00 \oplus 01 = 01$$
 
 $$00 \oplus 01 \oplus 10 = 11$$
 
-$$00 \oplus 01 \oplus 10 \oplus 11 = 0$$
+$$00 \oplus 01 \oplus 10 \oplus 11 = 00$$
 
 So, if all the previous bits, before this block, are cancelled out, the accumulated XOR for $x$ results in $0 \oplus x = x$. So if
 $n$ is this
@@ -2318,7 +2320,7 @@ With the third word, $x+2$, the leftmost bits are back again and the rigthmost b
 $11$. So
 $x \oplus (x+1) \oplus (x+2) = x + 3$ (it is the bit pattern
 $x$ except that the last two bits are set instead of zero). So, if
-$n = x+3$ we have
+$n = x+2$ we have
 
 $$\bigoplus_{i=0}^n i = 0\oplus x \oplus (x+1) \oplus (x+2) = x + 3 = n + 1.$$
 
