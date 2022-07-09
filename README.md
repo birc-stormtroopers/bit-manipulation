@@ -2402,6 +2402,101 @@ I won't show a Rust implementation because doubly linked lists are notoriously d
 
 Of course, if you find yourself in the situation where you have doubly linked lists and you can't afford two pointers, you have probably left The True Path of efficient programming, but there are cases where you need so save space and this trick does eliminate half the space usage in some cases.
 
+#### Branchless selection
+
+The next trick we shall see is a way of eliminating branching when we use a boolean to select between two different values. Something like
+
+```python
+    x if b else y
+```
+
+in Python,
+
+```c
+    b ? x : y;
+```
+
+in C or just
+
+```rust
+    if b { x } else { y }
+```
+
+in rust.
+
+Code like that is quite common, I think you will agree, and there is absolutely nothing wrong with it. It will be fast, and you probably will never need this trick, ever.
+
+However, branches, such as `if`-statements or loops, *can* be slow. The reason has to do with how the CPU can exploit parallelism to execute your code, and with branching this can break because of poor [branch prediction](https://en.wikipedia.org/wiki/Branch_predictor). It is too wide a topic to get into here, but a rule of thumb is that you do not want branches if you can avoid them. They can slow down your code substantially. If you can, then replace branches with something else (something called *branchless programming*).
+
+(This is all true, but the reason I say that it probably will never matter is that your compiler and modern CPUs will handle it for you nine times out of ten. It also will here, and I'll show you a little later).
+
+Anyway, back to XOR. The expression `if b { x } else { y }` has two branches, and the value of the boolean `b` determines which one we choose. We can, however, replace it with an expression that evaluates to `x` if `b` is true and to `y` otherwise.
+
+You've already seen that if `b` is encoded as 0 or 1, then `-b` will be all zeros or all ones, depending on whether `b` is false or true.
+
+```
+    -b = 0b1111...1111 if b is true
+    -0 = 0b0000...0000 if b is false
+```
+
+We can use that as a mask to construct a value that is either `x ^ y` or zero:
+
+```
+    mask = (x ^ y) & -b
+```
+
+So, if `b` is true, we have `mask = x ^ y`, and if `b` is false, we have `mask = 0`. Since
+
+```
+    y = y ^ 0
+    x = y ^ (x ^ y)
+```
+
+we can XOR `y` to the mask to select either `x` or `y`, and our expression becomes
+
+```
+    y ^ ((x ^ y) & -b) = x   if b is true, so the mask is x ^ y
+    y ^ ((x ^ y) & -b) = x   if b is false, so the mask is 0
+```
+
+So, we could write such a select, either as a simple `if-else`:
+
+
+```rust
+fn branch_select(b: bool, x: u32, y: u32) -> u32 {
+    if b { x } else { y }
+}
+```
+
+or as the bit-trick (where the type casting is necessary in Rust):
+
+```rust
+fn branchless_select(b: bool, x: u32, y: u32) -> u32 {
+    y ^ ((x ^ y) & -(b as i32) as u32)
+}
+```
+
+They will do exactly the same thing, but as I hinted at, there is little use for the trick. When I [ran both through the compiler](https://godbolt.org/z/cP7o7e3xb) I got exactly the same code:
+
+```asm
+select:
+        mov     eax, esi    ; put second argument (esi) in reg. eax
+        test    edi, edi    ; check if the first argument is zero
+        cmove   eax, edx    ; if it is, put third argumnt (edx) in eax instead
+        ret                 ; return (the return value is in eax)
+```
+
+To read this you need to know that the first three integer or pointer arguments in this calling convention goes in `rdi`, `rsi` and `rdx`, respectively, and that `edi`, `esi` and `edx` are the 32-bit versions of these. Since we are using 32-bit integers here, we use the `e--` registers instead of the `r--` registers. It is actually the same registers, we don't have separate registers for different word sizes, but it means taht we only look at 32 bits. The code simply says, put `x` in the register where we put the return values, but if `b` is zero, replace it wity `y`. That, of course, gives us `x` if `b` and `y` otherwise.
+
+I'm not surprised that the compiler figured out that it didn't need a branch for the first function, and used the conditional move instruction `cmove`. I was more surprised that it figured out what the bit-trickery was up to, so it could generate the same code there. But it shows you that compilers are pretty smart, and you should probably just tell them, in simple instructions, what you want them to do. Then they will figure out how to do it.
+
+Conditional moves, like `cmove`, is the CPU's way of avoiding branches, and compilers know how to use them. Let them.
+
+I don't mean to say that branchless programming is useless (after all, `cmove` is part of it), but I've seen too often people try to write branchless code that ends up slower than what they would get with branches, simply because the compiler cannot figure out what they are trying to do (unlike this case), and so their code ends up slower than what the compiler would generate with simpler input.
+
+If you find that you do have branches, and they are slowing your code down, try to give the compiler more information instead. That usually does the trick. If not, then something like this trick might help. But always check the assembly code the compiler generates before you go hacking on something that isn't working anyway.
+
+
 
 
 

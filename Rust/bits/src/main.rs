@@ -397,6 +397,18 @@ fn find_non_dup(x: &[u32]) -> u32 {
     x.iter().fold(0, |acc, w| acc ^ w)
 }
 
+fn branch_select(b: bool, x: u32, y: u32) -> u32 {
+    if b {
+        x
+    } else {
+        y
+    }
+}
+
+fn branchless_select(b: bool, x: u32, y: u32) -> u32 {
+    y ^ ((x ^ y) & -(b as i32) as u32)
+}
+
 fn main() {
     basic_operations();
     unsigned_arithmethic();
@@ -512,4 +524,15 @@ fn main() {
 
     println!("missing {}", find_missing(&vec![1, 0, 2, 4]));
     println!("non-dup {}", find_non_dup(&vec![1, 0, 1, 0, 2]));
+
+    println!(
+        "select: true 13 42: {} {}",
+        branch_select(true, 13, 42),
+        branchless_select(true, 13, 42)
+    );
+    println!(
+        "select: false 13 42: {} {}",
+        branch_select(false, 13, 42),
+        branchless_select(false, 13, 42)
+    );
 }
