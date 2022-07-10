@@ -2496,6 +2496,7 @@ I don't mean to say that branchless programming is useless (after all, `cmove` i
 
 If you find that you do have branches, and they are slowing your code down, try to give the compiler more information instead. That usually does the trick. If not, then something like this trick might help. But always check the assembly code the compiler generates before you go hacking on something that isn't working anyway.
 
+If you do find that there are branches, you can use something like this XOR trick to remove them. Then check the performance to see if you did better than the compiler.
 
 
 
