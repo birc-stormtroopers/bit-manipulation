@@ -409,6 +409,54 @@ fn branchless_select(b: bool, x: u32, y: u32) -> u32 {
     y ^ ((x ^ y) & -(b as i32) as u32)
 }
 
+mod psum {
+    pub fn pack(a: u8, b: u8, c: u8, d: u8, e: u8, f: u8, g: u8, h: u8) -> u64 {
+        ((h as u64) << 56)
+            | ((g as u64) << 48)
+            | ((f as u64) << 40)
+            | ((e as u64) << 32)
+            | ((d as u64) << 24)
+            | ((c as u64) << 16)
+            | ((b as u64) << 8)
+            | (a as u64)
+    }
+
+    pub fn add(x: u64, y: u64) -> u64 {
+        let top_bits_mask = 0x8080808080808080;
+        let low_bits_mask = !top_bits_mask;
+
+        let top_bits_carry = (x ^ y) & top_bits_mask;
+        let low_added = (x & low_bits_mask) + (y & low_bits_mask);
+        let wrap_added = low_added ^ top_bits_carry;
+
+        wrap_added
+    }
+
+    pub fn sub(x: u64, y: u64) -> u64 {
+        let top_bits_mask = 0x8080808080808080;
+        let low_bits_mask = !top_bits_mask;
+
+        let sub_with_carry = (x | top_bits_mask) - (y & low_bits_mask);
+        let wrap_sub = !(((x ^ y) | low_bits_mask) ^ sub_with_carry);
+
+        wrap_sub
+    }
+
+    pub fn print(x: u64) {
+        println!(
+            "{:08b} {:08b} {:08b} {:08b} {:08b} {:08b} {:08b} {:08b}",
+            (x >> 56) & 0xff,
+            (x >> 48) & 0xff,
+            (x >> 40) & 0xff,
+            (x >> 32) & 0xff,
+            (x >> 24) & 0xff,
+            (x >> 16) & 0xff,
+            (x >> 8) & 0xff,
+            x & 0xff
+        )
+    }
+}
+
 fn main() {
     basic_operations();
     unsigned_arithmethic();
@@ -535,4 +583,14 @@ fn main() {
         branch_select(false, 13, 42),
         branchless_select(false, 13, 42)
     );
+
+    let x = psum::pack(10, 20, 30, 40, 50, 60, 70, 90);
+    psum::print(x);
+    psum::print(psum::add(x, x));
+    psum::print(psum::sub(psum::add(x, x), x));
+    psum::print(psum::add(psum::add(x, x), psum::add(x, x)));
+    psum::print(psum::sub(
+        psum::add(psum::add(x, x), psum::add(x, x)),
+        psum::add(x, x),
+    ));
 }

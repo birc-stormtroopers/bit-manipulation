@@ -2503,6 +2503,9 @@ If you do find that there are branches, you can use something like this XOR tric
 
 
 
+
+
+
 [^1]: There might be flags set in a register to tell you if any set bits were shifted out, but unless you are writing machine code, you do not have access to this, so from a high-level programming perspective the bits are lost.
 
 [^2]: You have two zeros with floating point numbers, but the instructions that care for zero are not looking at floating point numbers so it isn't an issue there).
