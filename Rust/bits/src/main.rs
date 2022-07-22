@@ -432,6 +432,17 @@ mod psum {
         wrap_added
     }
 
+    pub fn overflow_add(x: u64, y: u64) -> u64 {
+        let top_bits_mask = 0x8080808080808080;
+        let low_bits_mask = !top_bits_mask;
+
+        let overflow = (x | y) & top_bits_mask;
+        let low_added = (x & low_bits_mask) + (y & low_bits_mask);
+        let overflow_added = low_added | overflow;
+
+        overflow_added
+    }
+
     pub fn sub(x: u64, y: u64) -> u64 {
         let top_bits_mask = 0x8080808080808080;
         let low_bits_mask = !top_bits_mask;
@@ -587,8 +598,10 @@ fn main() {
     let x = psum::pack(10, 20, 30, 40, 50, 60, 70, 90);
     psum::print(x);
     psum::print(psum::add(x, x));
+    psum::print(psum::overflow_add(x, x));
     psum::print(psum::sub(psum::add(x, x), x));
     psum::print(psum::add(psum::add(x, x), psum::add(x, x)));
+    psum::print(psum::overflow_add(psum::add(x, x), psum::add(x, x)));
     psum::print(psum::sub(
         psum::add(psum::add(x, x), psum::add(x, x)),
         psum::add(x, x),
