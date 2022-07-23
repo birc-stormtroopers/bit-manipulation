@@ -2498,7 +2498,37 @@ If you find that you do have branches, and they are slowing your code down, try 
 
 If you do find that there are branches, you can use something like this XOR trick to remove them. Then check the performance to see if you did better than the compiler.
 
+### Parallel addition and subtraction
 
+There are times where you want to manipulate a vector of small integers such that you can add and subtract in parallel. Say, for example, you need to work with numbers up to eight bit long, but several of them. You can pack them into a larger word-size, say 64 bits, and add numbers componentwise. This is similar to what we did with popcount, but in the general case you need to be careful with overflow. If you want to add numbers in parallel, you can't permit an overflow from one number to carry into the next.
+
+The trick is to mask out the highest bit, so you can't get an overflow when you add the samller bits. Then, depending on how you want to deal with overflow, you need to deal with the high bits coming into the addition and coming out again.
+
+If you want the wrapping semantics you get with normal integers modulus the largest value you need to look at the two high bits coming into an addition in a sub-number. If both are zero, they do not add to a carry; if both are one, they overflow but leave a zero at this bit position, and otherwise one of the contributes a one at the highest position. Then you can add the low bits by masking them out, and examine the carry bit from this addition. If the incoming words left a zero in the high bit, you can just leave the carry from the addition. If they left a one, a zero carry will leave it alone but a one carry should flip it (because we have an overflow). In either case, an XOR of the two high bits and the addition with the lower bits will get the job done.
+
+```rust
+pub fn add(x: u64, y: u64) -> u64 {
+    let top_bits_mask = 0x8080808080808080;
+    let low_bits_mask = !top_bits_mask;
+    let top_bits_carry = (x ^ y) & top_bits_mask;
+    let low_added = (x & low_bits_mask) + (y & low_bits_mask);
+    let wrap_added = low_added ^ top_bits_carry;
+    wrap_added
+}
+```
+
+![Parallel add](figs/padd-psub/wrap-padd.png)
+
+
+```rust
+pub fn sub(x: u64, y: u64) -> u64 {
+    let top_bits_mask = 0x8080808080808080;
+    let low_bits_mask = !top_bits_mask;
+    let sub_with_carry = (x | top_bits_mask) - (y & low_bits_mask);
+    let wrap_sub = !(((x ^ y) | low_bits_mask) ^ sub_with_carry);
+    wrap_sub
+}
+```
 
 
 
