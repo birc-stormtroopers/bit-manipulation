@@ -2520,6 +2520,18 @@ pub fn add(x: u64, y: u64) -> u64 {
 ![Parallel add](figs/padd-psub/wrap-padd.png)
 
 
+For a similar parallel subtraction, you can get the high bits in each sub-word and XOR them to get what the subtraction result would be if we didn't carry but only subtracted single bits. A `x ^ y` would do, since we do XOR bit-wise and can just ignore the bits we don't want to look at. We are going to mask the result with all the low bits set, though, to get words that have the XOR results at the top of each sub-word and ones everywhere else: `((x ^ y) | low_bits_mask)`.
+
+Then for the low bits, we can subtract like this: `(x | top_bits_mask) - (y & low_bits_mask)`. This is almost just a subtraction in the low bits, but for `x` we have explicitly set the top bit so we always have a carry there. It prevents us from stealing a carry from any words to the left of the current sub-word. The low bits of this result is the result of the subtraction of the low bits, and the high bit will be zero if we used the carry bit we put in the highest position and one if we didn't.
+
+Now XOR the two expressions we have so far:
+
+```
+    ((x ^ y) | low_bits_mask) ^ ((x | top_bits_mask) - (y & low_bits_mask))
+```
+
+Because all the low bits are set on the left, the XOR inverts the bits in the low-bit subtraction, so we will need to invert these again for the final result. For the top bit, `x ^ y` gave us the bit we would have here if we didn't need it for a carry by the lower bits, but by XOR'ing it with the result that has zero here if we *did* need the carry and one if we *didn't*, we end up with a set bit here if the subtraction should have a zero bit and a zero bit here if the subtraction should have a one. So, we need to flip this bit as well. So, flipping all the bits in the expression above gives us the correct result.
+
 ```rust
 pub fn sub(x: u64, y: u64) -> u64 {
     let top_bits_mask = 0x8080808080808080;
@@ -2530,7 +2542,7 @@ pub fn sub(x: u64, y: u64) -> u64 {
 }
 ```
 
-
+![Wrapped parallel sub](figs/padd-psub/wrap-psub.png)
 
 
 
